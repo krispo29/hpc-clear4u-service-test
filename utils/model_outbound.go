@@ -1,0 +1,135 @@
+package utils
+
+type InsertPreExportHeaderManifestModel struct {
+	UploadLoggingUUID        string
+	VasselName               string
+	DepartureDate            string
+	ReleasePort              int64
+	LoadingPort              int64
+	TotalPackage             int64
+	TotalPackageUnitCode     string
+	TotalNetWeight           int64
+	TotalNetWeightUnitCode   string
+	TotalGrossWeight         float64
+	TotalGrossWeightUnitCode string
+	Details                  []*InsertPreExportDetailManifestModel
+}
+
+type InsertPreExportDetailManifestModel struct {
+	HeaderUUID                  string
+	MasterAirWaybill            string
+	HouseAirWaybill             string
+	Category                    int64
+	ConsignorCompanyTaxNumber   string
+	ConsignorCompanyBranch      string
+	ConsignorName               string
+	ConsignorStreetAndAddress   string
+	ConsignorDistrict           string
+	ConsignorSubProvince        string
+	ConsignorProvince           string
+	ConsignorPostcode           string
+	ConsignorEmail              string
+	ConsigneeName               string
+	ConsigneeStreetAndAddress   string
+	ConsigneeDistrict           string
+	ConsigneeSubProvince        string
+	ConsigneeProvince           string
+	ConsigneePostcode           string
+	ConsigneeCountryCode        string
+	ConsigneeEmail              string
+	PurchaseCountryCode         string
+	DestinationCountryCode      string
+	ThaiDescriptionOfGoods      string
+	EnglishDescriptionOfGoods   string
+	Quantity                    int64
+	QuantityUnitCode            string
+	NetWeight                   float64
+	NetWeightUnitCode           string
+	GrossWeight                 float64
+	GrossWeightUnitCode         string
+	PackageAmount               int64
+	PackageUnitCode             string
+	Remark                      string
+	FobValueBaht                float64
+	FobValueForeign             float64
+	CurrencyCode                string
+	ExchangeRate                int64
+	FreightAmount               int64
+	FreightAmountCurrencyCode   string
+	InsuranceAmount             int64
+	InsuranceAmountCurrencyCode string
+	TariffCode                  string
+	StatCode                    string
+	TariffSequence              string
+}
+
+type GetHeaderManifestPreExport struct {
+	UUID                     string
+	UploadLoggingUUID        string
+	VasselName               string
+	DepartureDate            string
+	ReleasePort              int64
+	LoadingPort              int64
+	TotalPackage             int64
+	TotalPackageUnitCode     string
+	TotalNetWeight           int64
+	TotalNetWeightUnitCode   string
+	TotalGrossWeight         float64
+	TotalGrossWeightUnitCode string
+	CreatedAt                string
+	UpdatedAt                string
+	DeletedAt                string
+	Details                  []*GetDetailManifestPreExport
+}
+
+type GetDetailManifestPreExport struct {
+	UUID                        string
+	HeaderUUID                  string
+	MasterAirWaybill            string
+	HouseAirWaybill             string
+	Category                    int64
+	ConsignorCompanyTaxNumber   string
+	ConsignorCompanyBranch      string
+	ConsignorName               string
+	ConsignorStreetAndAddress   string
+	ConsignorDistrict           string
+	ConsignorSubProvince        string
+	ConsignorProvince           string
+	ConsignorPostcode           string
+	ConsignorEmail              string
+	ConsigneeName               string
+	ConsigneeStreetAndAddress   string
+	ConsigneeDistrict           string
+	ConsigneeSubProvince        string
+	ConsigneeProvince           string
+	ConsigneePostcode           string
+	ConsigneeCountryCode        string
+	ConsigneeEmail              string
+	PurchaseCountryCode         string
+	DestinationCountryCode      string
+	ThaiDescriptionOfGoods      string
+	EnglishDescriptionOfGoods   string
+	Quantity                    int64
+	QuantityUnitCode            string
+	NetWeight                   float64
+	NetWeightUnitCode           string
+	GrossWeight                 float64
+	GrossWeightUnitCode         string
+	PackageAmount               int64
+	PackageUnitCode             string
+	Remark                      string
+	FobValueBaht                float64
+	FobValueForeign             float64
+	CurrencyCode                string
+	ExchangeRate                int64
+	FreightAmount               int64
+	FreightAmountCurrencyCode   string
+	InsuranceAmount             int64
+	InsuranceAmountCurrencyCode string
+	TariffCode                  string
+	StatCode                    string
+	TariffSequence              string
+	CreatedAt                   string
+	UpdatedAt                   string
+	DeletedAt                   string
+}
