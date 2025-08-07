@@ -20,6 +20,7 @@ type Service interface {
 	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest) (*MawbInfoResponse, error)
 	DeleteMawbInfo(ctx context.Context, uuid string) error
 	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error
+	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
 }
 
 type service struct {
@@ -44,6 +45,14 @@ func (s *service) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoReques
 	// Validate input data
 	if err := s.validateInput(data); err != nil {
 		return nil, err
+	}
+
+	exists, err := s.selfRepo.IsMawbExists(ctx, data.Mawb, "")
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, errors.New("mawb already exists")
 	}
 
 	// Convert chargeableWeight string to float64 with 2 decimal places
@@ -93,6 +102,13 @@ func (s *service) validateInput(data *CreateMawbInfoRequest) error {
 	}
 
 	return nil
+}
+
+func (s *service) IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	return s.selfRepo.IsMawbExists(ctx, mawb, uuid)
 }
 
 // convertChargeableWeight converts string to float64 with exactly 2 decimal places
@@ -188,6 +204,14 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 	// Validate input data
 	if err := s.validateUpdateInput(data); err != nil {
 		return nil, err
+	}
+
+	exists, err := s.selfRepo.IsMawbExists(ctx, data.Mawb, uuid)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, errors.New("mawb already exists")
 	}
 
 	// Convert chargeableWeight string to float64 with 2 decimal places

@@ -19,6 +19,7 @@ type Repository interface {
 	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight float64, attachments []AttachmentInfo) (*MawbInfoResponse, error)
 	DeleteMawbInfo(ctx context.Context, uuid string) error
 	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (string, error)
+	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
 }
 
 type repository struct {
@@ -533,4 +534,37 @@ func (r repository) DeleteMawbInfoAttachment(ctx context.Context, uuid string, f
 	}
 
 	return deletedFileUrl, nil
+}
+
+func (r repository) IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var count int
+	query := "SELECT count(*) FROM tbl_mawb_info WHERE mawb = ?"
+	params := []interface{}{mawb}
+
+	if uuid != "" {
+		query += " AND uuid != ?"
+		params = append(params, uuid)
+	}
+
+	query = utils.ReplaceSQL(query, "?")
+
+	var err error
+	if uuid != "" {
+		_, err = db.QueryOneContext(ctx, pg.Scan(&count), "SELECT count(*) FROM tbl_mawb_info WHERE mawb = ? AND uuid != ?", mawb, uuid)
+	} else {
+		_, err = db.QueryOneContext(ctx, pg.Scan(&count), "SELECT count(*) FROM tbl_mawb_info WHERE mawb = ?", mawb)
+	}
+
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return false, nil
+		}
+		return false, utils.PostgresErrorTransform(err)
+	}
+
+	return count > 0, nil
 }
