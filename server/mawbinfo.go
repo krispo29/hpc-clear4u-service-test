@@ -23,6 +23,7 @@ func (h *mawbInfoHandler) router() chi.Router {
 	r.Get("/{uuid}", h.getMawbInfo)
 	r.Put("/{uuid}", h.updateMawbInfo)
 	r.Delete("/{uuid}", h.deleteMawbInfo)
+	r.Delete("/{uuid}/attachments", h.deleteMawbInfoAttachment)
 	return r
 }
 
@@ -176,4 +177,42 @@ func (h *mawbInfoHandler) deleteMawbInfo(w http.ResponseWriter, r *http.Request)
 
 	// Return success response
 	render.Respond(w, r, SuccessResponse(nil, "deleted successfully"))
+}
+
+func (h *mawbInfoHandler) deleteMawbInfoAttachment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Get UUID from URL parameter
+	uuid := chi.URLParam(r, "uuid")
+	if uuid == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	// Bind request data for the file to be deleted
+	data := &mawbinfo.DeleteAttachmentRequest{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Validate request data
+	validate := validator.New()
+	if err := validate.Struct(data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Call service to delete the attachment
+	err := h.s.DeleteMawbInfoAttachment(ctx, uuid, data.FileName)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Return success response
+	render.Respond(w, r, SuccessResponse(nil, "attachment deleted successfully"))
 }

@@ -57,3 +57,13 @@ func (r *UpdateMawbInfoRequest) Bind(req *http.Request) error {
 func (r *MawbInfoResponse) Render(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
+
+// DeleteAttachmentRequest represents the request payload for deleting a MAWB attachment
+type DeleteAttachmentRequest struct {
+	FileName string `json:"fileName" validate:"required"`
+}
+
+// Bind implements the chi render.Binder interface for HTTP request binding
+func (r *DeleteAttachmentRequest) Bind(req *http.Request) error {
+	return nil
+}

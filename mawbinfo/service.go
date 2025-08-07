@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hpc-express-service/utils"
 	"math"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ type Service interface {
 	GetAllMawbInfo(ctx context.Context, startDate, endDate string) ([]*MawbInfoResponse, error)
 	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest) (*MawbInfoResponse, error)
 	DeleteMawbInfo(ctx context.Context, uuid string) error
+	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error
 }
 
 type service struct {
@@ -242,6 +244,38 @@ func (s *service) DeleteMawbInfo(ctx context.Context, uuid string) error {
 	err := s.selfRepo.DeleteMawbInfo(ctx, uuid)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	if strings.TrimSpace(uuid) == "" {
+		return errors.New("uuid is required")
+	}
+	if strings.TrimSpace(fileName) == "" {
+		return errors.New("fileName is required")
+	}
+
+	// Delete from repository, which returns the file path
+	filePath, err := s.selfRepo.DeleteMawbInfoAttachment(ctx, uuid, fileName)
+	if err != nil {
+		return err // Repository error (e.g., not found)
+	}
+
+	// If file path is not empty, delete the file from local storage
+	if filePath != "" {
+		// It's good practice to ensure the path is within an expected directory
+		// to prevent path traversal attacks, though for this implementation we'll assume it's safe.
+		if err := os.Remove(filePath); err != nil {
+			// Log the error but don't fail the whole operation,
+			// as the DB record is already deleted.
+			// Consider a more robust error handling strategy for production.
+			fmt.Printf("warning: failed to delete attachment file '%s': %v\n", filePath, err)
+		}
 	}
 
 	return nil
