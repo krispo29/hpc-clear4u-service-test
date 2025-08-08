@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator"
 
-	"hpc-express-service/mawbinfo"
+	"hpc-express-service/outbound/mawbinfo"
 )
 
 type mawbInfoHandler struct {
