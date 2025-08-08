@@ -21,6 +21,8 @@ type Service interface {
 	DeleteMawbInfo(ctx context.Context, uuid string) error
 	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error
 	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
+	GetCargoManifest(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	CreateOrUpdateCargoManifest(ctx context.Context, mawbUUID string, data *CargoManifest) (*CargoManifest, error)
 }
 
 type service struct {
@@ -332,4 +334,34 @@ func (s *service) validateUpdateInput(data *UpdateMawbInfoRequest) error {
 	}
 
 	return nil
+}
+
+func (s *service) GetCargoManifest(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	if strings.TrimSpace(mawbUUID) == "" {
+		return nil, errors.New("mawb uuid is required")
+	}
+
+	return s.selfRepo.GetCargoManifest(ctx, mawbUUID)
+}
+
+func (s *service) CreateOrUpdateCargoManifest(ctx context.Context, mawbUUID string, data *CargoManifest) (*CargoManifest, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	if strings.TrimSpace(mawbUUID) == "" {
+		return nil, errors.New("mawb uuid is required")
+	}
+
+	if data == nil {
+		return nil, errors.New("manifest data is required")
+	}
+
+	if strings.TrimSpace(data.MAWBNumber) == "" {
+		return nil, errors.New("mawbNumber is required")
+	}
+
+	return s.selfRepo.CreateOrUpdateCargoManifest(ctx, mawbUUID, data)
 }

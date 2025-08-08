@@ -24,6 +24,8 @@ func (h *mawbInfoHandler) router() chi.Router {
 	r.Put("/{uuid}", h.updateMawbInfo)
 	r.Delete("/{uuid}", h.deleteMawbInfo)
 	r.Delete("/{uuid}/attachments", h.deleteMawbInfoAttachment)
+	r.Get("/{uuid}/cargo-manifest", h.getCargoManifest)
+	r.Post("/{uuid}/cargo-manifest", h.createOrUpdateCargoManifest)
 	return r
 }
 
@@ -215,4 +217,52 @@ func (h *mawbInfoHandler) deleteMawbInfoAttachment(w http.ResponseWriter, r *htt
 
 	// Return success response
 	render.Respond(w, r, SuccessResponse(nil, "attachment deleted successfully"))
+}
+
+func (h *mawbInfoHandler) getCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	uuid := chi.URLParam(r, "uuid")
+	if uuid == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	result, err := h.s.GetCargoManifest(ctx, uuid)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "success"))
+}
+
+func (h *mawbInfoHandler) createOrUpdateCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	uuid := chi.URLParam(r, "uuid")
+	if uuid == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	data := &mawbinfo.CargoManifest{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	result, err := h.s.CreateOrUpdateCargoManifest(ctx, uuid, data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "success"))
 }

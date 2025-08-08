@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"hpc-express-service/utils"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-pg/pg/v9"
+	"github.com/google/uuid"
 )
 
 type Repository interface {
@@ -20,6 +22,8 @@ type Repository interface {
 	DeleteMawbInfo(ctx context.Context, uuid string) error
 	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (string, error)
 	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
+	GetCargoManifest(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	CreateOrUpdateCargoManifest(ctx context.Context, mawbUUID string, data *CargoManifest) (*CargoManifest, error)
 }
 
 type repository struct {
@@ -567,4 +571,36 @@ func (r repository) IsMawbExists(ctx context.Context, mawb string, uuid string) 
 	}
 
 	return count > 0, nil
+}
+
+// In-memory storage for cargo manifests for demonstration purposes.
+var (
+	cargoManifestStore = make(map[string]*CargoManifest)
+	cargoManifestMu    sync.RWMutex
+)
+
+func (r repository) GetCargoManifest(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
+	cargoManifestMu.RLock()
+	defer cargoManifestMu.RUnlock()
+
+	if cm, ok := cargoManifestStore[mawbUUID]; ok {
+		return cm, nil
+	}
+	return nil, errors.New("cargo manifest not found")
+}
+
+func (r repository) CreateOrUpdateCargoManifest(ctx context.Context, mawbUUID string, data *CargoManifest) (*CargoManifest, error) {
+	if data == nil {
+		return nil, errors.New("manifest data is required")
+	}
+
+	cargoManifestMu.Lock()
+	defer cargoManifestMu.Unlock()
+
+	if data.UUID == "" {
+		data.UUID = uuid.New().String()
+	}
+	data.MAWBInfoUUID = mawbUUID
+	cargoManifestStore[mawbUUID] = data
+	return data, nil
 }
