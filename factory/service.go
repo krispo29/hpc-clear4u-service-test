@@ -36,6 +36,8 @@ type ServiceFactory struct {
 	ShopeeSvc                 shopee.Service
 	MawbSvc                   mawb.Service
 	MawbInfoSvc               mawbinfo.Service
+	CargoManifestSvc          mawbinfo.CargoManifestService
+	DraftMAWBSvc              mawbinfo.DraftMAWBService
 	CustomerSvc               customer.Service
 	DashboardSvc              dashboard.Service
 	UserSvc                   user.Service
@@ -95,6 +97,20 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// MawbInfo
 	mawbInfoSvc := mawbinfo.NewService(
 		repo.MawbInfoRepo,
+		timeoutContext,
+	)
+
+	// CargoManifest
+	cargoManifestSvc := mawbinfo.NewCargoManifestService(
+		repo.MawbInfoRepo,
+		repo.CargoManifestRepo,
+		timeoutContext,
+	)
+
+	// DraftMAWB
+	draftMAWBSvc := mawbinfo.NewDraftMAWBService(
+		repo.MawbInfoRepo,
+		repo.DraftMAWBRepo,
 		timeoutContext,
 	)
 	/*
@@ -163,6 +179,8 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		ShopeeSvc:                 shopeeSvc,
 		MawbSvc:                   mawbSvc,
 		MawbInfoSvc:               mawbInfoSvc,
+		CargoManifestSvc:          cargoManifestSvc,
+		DraftMAWBSvc:              draftMAWBSvc,
 		CustomerSvc:               customerSvc,
 		DashboardSvc:              dashboardSvc,
 		UserSvc:                   userSvc,
