@@ -8,6 +8,7 @@ import (
 	"hpc-express-service/dropdown"
 	inbound "hpc-express-service/inbound/express"
 	"hpc-express-service/mawb"
+	"hpc-express-service/outbound"
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
@@ -37,6 +38,8 @@ type RepositoryFactory struct {
 	DashboardRepo                 dashboard.Repository
 	UserRepo                      user.Repository
 	SettingRepo                   setting.Repository
+	CargoManifestRepo             outbound.CargoManifestRepository
+	DraftMAWBRepo                 outbound.DraftMAWBRepository
 }
 
 func NewRepositoryFactory() *RepositoryFactory {
@@ -59,5 +62,7 @@ func NewRepositoryFactory() *RepositoryFactory {
 		UserRepo:                      user.NewRepository(timeoutContext),
 		CompareRepo:                   compare.NewExcelRepository(timeoutContext),
 		SettingRepo:                   setting.NewRepository(timeoutContext),
+		CargoManifestRepo:             outbound.NewCargoManifestRepository(),
+		DraftMAWBRepo:                 outbound.NewDraftMAWBRepository(),
 	}
 }
