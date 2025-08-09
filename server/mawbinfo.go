@@ -13,7 +13,9 @@ import (
 )
 
 type mawbInfoHandler struct {
-	s mawbinfo.Service
+	s                mawbinfo.Service
+	cargoManifestSvc mawbinfo.CargoManifestService
+	draftMAWBSvc     mawbinfo.DraftMAWBService
 }
 
 func (h *mawbInfoHandler) router() chi.Router {
@@ -24,6 +26,23 @@ func (h *mawbInfoHandler) router() chi.Router {
 	r.Put("/{uuid}", h.updateMawbInfo)
 	r.Delete("/{uuid}", h.deleteMawbInfo)
 	r.Delete("/{uuid}/attachments", h.deleteMawbInfoAttachment)
+
+	r.Route("/{uuid}/cargo-manifest", func(r chi.Router) {
+		r.Get("/", h.getCargoManifest)
+		r.Post("/", h.createOrUpdateCargoManifest)
+		r.Post("/confirm", h.confirmCargoManifest)
+		r.Post("/reject", h.rejectCargoManifest)
+		r.Get("/print", h.printCargoManifest)
+	})
+
+	r.Route("/{uuid}/draft-mawb", func(r chi.Router) {
+		r.Get("/", h.getDraftMAWB)
+		r.Post("/", h.createOrUpdateDraftMAWB)
+		r.Post("/confirm", h.confirmDraftMAWB)
+		r.Post("/reject", h.rejectDraftMAWB)
+		r.Get("/print", h.printDraftMAWB)
+	})
+
 	return r
 }
 
@@ -215,4 +234,144 @@ func (h *mawbInfoHandler) deleteMawbInfoAttachment(w http.ResponseWriter, r *htt
 
 	// Return success response
 	render.Respond(w, r, SuccessResponse(nil, "attachment deleted successfully"))
+}
+
+func (h *mawbInfoHandler) getCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	result, err := h.cargoManifestSvc.GetCargoManifest(ctx, uuid)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			render.Render(w, r, &ErrResponse{
+				HTTPStatusCode: http.StatusNotFound,
+				Message:        "Cargo Manifest not found for this MAWB",
+			})
+			return
+		}
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Success"))
+}
+
+func (h *mawbInfoHandler) createOrUpdateCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	data := &mawbinfo.CargoManifest{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	result, err := h.cargoManifestSvc.CreateOrUpdateCargoManifest(ctx, uuid, data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Cargo Manifest created/updated successfully"))
+}
+
+func (h *mawbInfoHandler) confirmCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	err := h.cargoManifestSvc.UpdateCargoManifestStatus(ctx, uuid, "Confirmed")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest confirmed successfully"))
+}
+
+func (h *mawbInfoHandler) rejectCargoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	err := h.cargoManifestSvc.UpdateCargoManifestStatus(ctx, uuid, "Rejected")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest rejected successfully"))
+}
+
+func (h *mawbInfoHandler) printCargoManifest(w http.ResponseWriter, r *http.Request) {
+	// Placeholder for PDF generation logic
+	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
+}
+
+func (h *mawbInfoHandler) getDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	result, err := h.draftMAWBSvc.GetDraftMAWB(ctx, uuid)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			render.Render(w, r, &ErrResponse{
+				HTTPStatusCode: http.StatusNotFound,
+				Message:        "Draft MAWB not found for this MAWB",
+			})
+			return
+		}
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Success"))
+}
+
+func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	data := &mawbinfo.DraftMAWB{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	result, err := h.draftMAWBSvc.CreateOrUpdateDraftMAWB(ctx, uuid, data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Draft MAWB created/updated successfully"))
+}
+
+func (h *mawbInfoHandler) confirmDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(ctx, uuid, "Confirmed")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "Draft MAWB confirmed successfully"))
+}
+
+func (h *mawbInfoHandler) rejectDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uuid := chi.URLParam(r, "uuid")
+
+	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(ctx, uuid, "Rejected")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "Draft MAWB rejected successfully"))
+}
+
+func (h *mawbInfoHandler) printDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	// Placeholder for PDF generation logic
+	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
 }

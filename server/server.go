@@ -138,7 +138,11 @@ func New(
 			dropdownSvc := dropdownHandler{s.svcFactory.DropdownSvc}
 			r.Mount("/dropdown", dropdownSvc.router())
 
-			mawbInfoSvc := mawbInfoHandler{s.svcFactory.MawbInfoSvc}
+			mawbInfoSvc := mawbInfoHandler{
+				s:                s.svcFactory.MawbInfoSvc,
+				cargoManifestSvc: s.svcFactory.CargoManifestSvc,
+				draftMAWBSvc:     s.svcFactory.DraftMAWBSvc,
+			}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
 
 			compareSvc := excelHandler{s.svcFactory.CompareSvc}
