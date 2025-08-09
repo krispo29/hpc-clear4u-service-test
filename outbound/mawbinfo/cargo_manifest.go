@@ -45,11 +45,3 @@ func (cm *CargoManifest) Render(w http.ResponseWriter, r *http.Request) error {
 	// a good place to do pre-processing before sending response
 	return nil
 }
-
-func (CargoManifest) TableName() string {
-	return "cargo_manifest"
-}
-
-func (CargoManifestItem) TableName() string {
-	return "cargo_manifest_items"
-}

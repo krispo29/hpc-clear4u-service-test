@@ -103,19 +103,3 @@ func (dm *DraftMAWB) Bind(r *http.Request) error {
 func (dm *DraftMAWB) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
-
-func (DraftMAWB) TableName() string {
-	return "draft_mawb"
-}
-
-func (DraftMAWBItem) TableName() string {
-	return "draft_mawb_items"
-}
-
-func (DraftMAWBItemDim) TableName() string {
-	return "draft_mawb_item_dims"
-}
-
-func (DraftMAWBCharge) TableName() string {
-	return "draft_mawb_charges"
-}

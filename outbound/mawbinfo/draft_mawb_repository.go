@@ -37,6 +37,7 @@ func (r *draftMAWBRepository) GetByMAWBInfoUUID(ctx context.Context, mawbInfoUUI
 
 	var draft DraftMAWB
 	err := db.Model(&draft).
+		Table("draft_mawb").
 		Where("mawb_info_uuid = ?", mawbInfoUUID).
 		Select()
 
@@ -72,7 +73,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 
 	// Upsert logic for the main draft_mawb table
 	existingDraft := &DraftMAWB{}
-	err = tx.Model(existingDraft).Where("mawb_info_uuid = ?", draft.MAWBInfoUUID).Select()
+	err = tx.Model(existingDraft).Table("draft_mawb").Where("mawb_info_uuid = ?", draft.MAWBInfoUUID).Select()
 	if err != nil && err != pg.ErrNoRows {
 		return nil, utils.PostgresErrorTransform(err)
 	}
@@ -80,7 +81,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 	if existingDraft.UUID != "" { // Update
 		draft.UUID = existingDraft.UUID
 		draft.CreatedAt = existingDraft.CreatedAt
-		_, err = tx.Model(draft).WherePK().Update()
+		_, err = tx.Model(draft).Table("draft_mawb").WherePK().Update()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -89,7 +90,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 			return nil, err
 		}
 	} else { // Insert
-		_, err = tx.Model(draft).Insert()
+		_, err = tx.Model(draft).Table("draft_mawb").Insert()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -98,7 +99,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 	// Insert new children
 	for i := range draft.Items {
 		draft.Items[i].DraftMAWBUUID = draft.UUID
-		_, err := tx.Model(&draft.Items[i]).Insert()
+		_, err := tx.Model(&draft.Items[i]).Table("draft_mawb_items").Insert()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -106,7 +107,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 			draft.Items[i].Dims[j].DraftMAWBItemID = draft.Items[i].ID
 		}
 		if len(draft.Items[i].Dims) > 0 {
-			_, err = tx.Model(&draft.Items[i].Dims).Insert()
+			_, err = tx.Model(&draft.Items[i].Dims).Table("draft_mawb_item_dims").Insert()
 			if err != nil {
 				return nil, utils.PostgresErrorTransform(err)
 			}
@@ -117,7 +118,7 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draft *DraftMA
 		draft.Charges[i].DraftMAWBUUID = draft.UUID
 	}
 	if len(draft.Charges) > 0 {
-		_, err = tx.Model(&draft.Charges).Insert()
+		_, err = tx.Model(&draft.Charges).Table("draft_mawb_charges").Insert()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -140,6 +141,7 @@ func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, mawbInfoUUID, st
 	}
 
 	res, err := db.Model(&DraftMAWB{}).
+		Table("draft_mawb").
 		Set("status = ?, updated_at = ?", status, time.Now()).
 		Where("mawb_info_uuid = ?", mawbInfoUUID).
 		Update()
@@ -156,19 +158,19 @@ func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, mawbInfoUUID, st
 
 func (r *draftMAWBRepository) loadRelated(db orm.DB, draft *DraftMAWB) error {
 	// Load items
-	if err := db.Model(&draft.Items).Where("draft_mawb_uuid = ?", draft.UUID).Select(); err != nil && err != pg.ErrNoRows {
+	if err := db.Model(&draft.Items).Table("draft_mawb_items").Where("draft_mawb_uuid = ?", draft.UUID).Select(); err != nil && err != pg.ErrNoRows {
 		return utils.PostgresErrorTransform(err)
 	}
 
 	// For each item, load its dimensions
 	for i := range draft.Items {
-		if err := db.Model(&draft.Items[i].Dims).Where("draft_mawb_item_id = ?", draft.Items[i].ID).Select(); err != nil && err != pg.ErrNoRows {
+		if err := db.Model(&draft.Items[i].Dims).Table("draft_mawb_item_dims").Where("draft_mawb_item_id = ?", draft.Items[i].ID).Select(); err != nil && err != pg.ErrNoRows {
 			return utils.PostgresErrorTransform(err)
 		}
 	}
 
 	// Load charges
-	if err := db.Model(&draft.Charges).Where("draft_mawb_uuid = ?", draft.UUID).Select(); err != nil && err != pg.ErrNoRows {
+	if err := db.Model(&draft.Charges).Table("draft_mawb_charges").Where("draft_mawb_uuid = ?", draft.UUID).Select(); err != nil && err != pg.ErrNoRows {
 		return utils.PostgresErrorTransform(err)
 	}
 
@@ -178,7 +180,7 @@ func (r *draftMAWBRepository) loadRelated(db orm.DB, draft *DraftMAWB) error {
 func (r *draftMAWBRepository) deleteChildren(tx *pg.Tx, draftUUID string) error {
 	// Need to get item IDs to delete dims first
 	var items []DraftMAWBItem
-	err := tx.Model(&items).Column("id").Where("draft_mawb_uuid = ?", draftUUID).Select()
+	err := tx.Model(&items).Table("draft_mawb_items").Column("id").Where("draft_mawb_uuid = ?", draftUUID).Select()
 	if err != nil && err != pg.ErrNoRows {
 		return utils.PostgresErrorTransform(err)
 	}
@@ -188,18 +190,18 @@ func (r *draftMAWBRepository) deleteChildren(tx *pg.Tx, draftUUID string) error 
 		for _, item := range items {
 			itemIDs = append(itemIDs, item.ID)
 		}
-		_, err = tx.Model(&DraftMAWBItemDim{}).Where("draft_mawb_item_id IN (?)", pg.In(itemIDs)).Delete()
+		_, err = tx.Model(&DraftMAWBItemDim{}).Table("draft_mawb_item_dims").Where("draft_mawb_item_id IN (?)", pg.In(itemIDs)).Delete()
 		if err != nil {
 			return utils.PostgresErrorTransform(err)
 		}
 	}
 
-	_, err = tx.Model(&DraftMAWBItem{}).Where("draft_mawb_uuid = ?", draftUUID).Delete()
+	_, err = tx.Model(&DraftMAWBItem{}).Table("draft_mawb_items").Where("draft_mawb_uuid = ?", draftUUID).Delete()
 	if err != nil {
 		return utils.PostgresErrorTransform(err)
 	}
 
-	_, err = tx.Model(&DraftMAWBCharge{}).Where("draft_mawb_uuid = ?", draftUUID).Delete()
+	_, err = tx.Model(&DraftMAWBCharge{}).Table("draft_mawb_charges").Where("draft_mawb_uuid = ?", draftUUID).Delete()
 	if err != nil {
 		return utils.PostgresErrorTransform(err)
 	}
