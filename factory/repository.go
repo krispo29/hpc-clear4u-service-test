@@ -33,8 +33,6 @@ type RepositoryFactory struct {
 	ShopeeRepo                    shopee.Repository
 	MawbRepo                      mawb.Repository
 	MawbInfoRepo                  mawbinfo.Repository
-	CargoManifestRepo             mawbinfo.CargoManifestRepository
-	DraftMAWBRepo                 mawbinfo.DraftMAWBRepository
 	CustomerRepo                  customer.Repository
 	DashboardRepo                 dashboard.Repository
 	UserRepo                      user.Repository
@@ -56,8 +54,6 @@ func NewRepositoryFactory() *RepositoryFactory {
 		ShopeeRepo:                    shopee.NewRepository(timeoutContext),
 		MawbRepo:                      mawb.NewRepository(timeoutContext),
 		MawbInfoRepo:                  mawbinfo.NewRepository(timeoutContext),
-		CargoManifestRepo:             mawbinfo.NewCargoManifestRepository(timeoutContext),
-		DraftMAWBRepo:                 mawbinfo.NewDraftMAWBRepository(timeoutContext),
 		CustomerRepo:                  customer.NewRepository(timeoutContext),
 		DashboardRepo:                 dashboard.NewRepository(timeoutContext),
 		UserRepo:                      user.NewRepository(timeoutContext),
