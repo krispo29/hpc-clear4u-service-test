@@ -20,16 +20,6 @@ type OutboundMawbRepository interface {
 	GetOneMawbDraft(ctx context.Context, uuid string) (*GetMawbDraftModel, error)
 	CreateMawbDraft(ctx context.Context, data *RequestDraftModel) error
 	UpdateMawbDraft(ctx context.Context, data *RequestUpdateMawbDraftModel) error
-
-	// Cargo Manifest
-	GetCargoManifestByMAWBInfoUUID(ctx context.Context, mawbInfoUUID string) (*CargoManifest, error)
-	CreateOrUpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
-	UpdateCargoManifestStatus(ctx context.Context, mawbInfoUUID, status string) error
-
-	// Draft V2
-	GetDraftMAWBByMAWBInfoUUIDV2(ctx context.Context, mawbInfoUUID string) (*DraftMAWBV2, error)
-	CreateOrUpdateDraftMAWBV2(ctx context.Context, draft *DraftMAWBV2) (*DraftMAWBV2, error)
-	UpdateDraftMAWBStatusV2(ctx context.Context, mawbInfoUUID, status string) error
 }
 
 type repository struct {

@@ -9,7 +9,7 @@
 ### 1. MAWB Info Table (มีอยู่แล้ว)
 
 ```sql
-CREATE TABLE tbl_mawb_info (
+CREATE TABLE mawb_info (
     uuid VARCHAR(36) PRIMARY KEY,
     mawb VARCHAR(255) NOT NULL,
     date DATE NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE tbl_mawb_info (
 );
 ```
 
-### 2. Cargo Manifest Table (มีอยู่แล้ว)
+### 2. Cargo Manifest Table (ใหม่)
 
 ```sql
 CREATE TABLE cargo_manifest (
@@ -45,7 +45,7 @@ CREATE TABLE cargo_manifest (
 );
 ```
 
-### 3. Cargo Manifest Items Table (มีอยู่แล้ว)
+### 3. Cargo Manifest Items Table (ใหม่)
 
 ```sql
 CREATE TABLE cargo_manifest_items (
@@ -63,7 +63,7 @@ CREATE TABLE cargo_manifest_items (
 );
 ```
 
-### 4. Draft MAWB Table (มีอยู่แล้ว)
+### 4. Draft MAWB Table (ใหม่)
 
 ```sql
 CREATE TABLE draft_mawb (
@@ -124,7 +124,7 @@ CREATE TABLE draft_mawb (
 );
 ```
 
-### 5. Draft MAWB Items Table (มีอยู่แล้ว)
+### 5. Draft MAWB Items Table (ใหม่)
 
 ```sql
 CREATE TABLE draft_mawb_items (
@@ -144,7 +144,7 @@ CREATE TABLE draft_mawb_items (
 );
 ```
 
-### 6. Draft MAWB Item Dimensions Table (มีอยู่แล้ว)
+### 6. Draft MAWB Item Dimensions Table (ใหม่)
 
 ```sql
 CREATE TABLE draft_mawb_item_dims (
@@ -159,7 +159,7 @@ CREATE TABLE draft_mawb_item_dims (
 );
 ```
 
-### 7. Draft MAWB Charges Table (มีอยู่แล้ว)
+### 7. Draft MAWB Charges Table (ใหม่)
 
 ```sql
 CREATE TABLE draft_mawb_charges (

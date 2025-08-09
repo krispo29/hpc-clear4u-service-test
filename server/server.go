@@ -141,9 +141,6 @@ func New(
 			mawbInfoSvc := mawbInfoHandler{s.svcFactory.MawbInfoSvc}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
 
-			outboundMawbSvcForInfo := outboundMawbHandler{s.svcFactory.OutboundMawbServiceSvc}
-			r.Mount("/mawbinfo/{mawbInfoUUID}", outboundMawbSvcForInfo.mawbInfoRouter())
-
 			compareSvc := excelHandler{s.svcFactory.CompareSvc}
 			r.Mount("/compare", compareSvc.router())
 
