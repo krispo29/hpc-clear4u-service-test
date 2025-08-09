@@ -52,7 +52,7 @@ type DraftMAWB struct {
 	TotalPrepaid                float64           `json:"totalPrepaid" db:"total_prepaid"`
 	CurrencyConversionRates     string            `json:"currencyConversionRates" db:"currency_conversion_rates"`
 	Signature1                  string            `json:"signature1" db:"signature1"`
-	Signature2Date              *time.Time        `json:"signature2Date" db:"signature2_date"`
+	Signature2Date              *CustomDate       `json:"signature2Date" db:"signature2_date"`
 	Signature2Place             string            `json:"signature2Place" db:"signature2_place"`
 	Signature2Issuing           string            `json:"signature2Issuing" db:"signature2_issuing"`
 	ShippingMark                string            `json:"shippingMark" db:"shipping_mark"`
