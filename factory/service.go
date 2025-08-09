@@ -4,12 +4,10 @@ import (
 	"time"
 
 	"hpc-express-service/auth"
-	"hpc-express-service/cargo_manifest"
 	"hpc-express-service/common"
 	"hpc-express-service/config"
 	"hpc-express-service/customer"
 	"hpc-express-service/dashboard"
-	"hpc-express-service/draft_mawb"
 	"hpc-express-service/dropdown"
 	"hpc-express-service/gcs"
 	inbound "hpc-express-service/inbound/express"
@@ -27,10 +25,8 @@ import (
 
 type ServiceFactory struct {
 	AuthSvc                   auth.Service
-	CargoManifestSvc          cargo_manifest.Service
 	CommonSvc                 common.Service
 	CompareSvc                compare.ExcelServiceInterface
-	DraftMAWBSvc              draft_mawb.Service
 	DropdownSvc               dropdown.Service
 	InboundExpressServiceSvc  inbound.InboundExpressService
 	Ship2cuSvc                ship2cu.Service
@@ -44,18 +40,10 @@ type ServiceFactory struct {
 	DashboardSvc              dashboard.Service
 	UserSvc                   user.Service
 	SettingSvc                setting.Service
-
-	// Caching services
-	MAWBInfoCacheSvc *common.MAWBInfoCacheService
 }
 
 func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *config.Config) *ServiceFactory {
 	timeoutContext := time.Duration(60) * time.Second
-
-	/*
-	* Caching Services
-	 */
-	mawbInfoCacheSvc := common.NewMAWBInfoCacheService()
 
 	/*
 	* Sharing Services
@@ -107,18 +95,6 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// MawbInfo
 	mawbInfoSvc := mawbinfo.NewService(
 		repo.MawbInfoRepo,
-		timeoutContext,
-	)
-
-	// Cargo Manifest
-	cargoManifestSvc := cargo_manifest.NewService(
-		repo.CargoManifestRepo,
-		timeoutContext,
-	)
-
-	// Draft MAWB
-	draftMAWBSvc := draft_mawb.NewService(
-		repo.DraftMAWBRepo,
 		timeoutContext,
 	)
 	/*
@@ -177,10 +153,7 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 
 	return &ServiceFactory{
 		AuthSvc:                   authSvc,
-		CargoManifestSvc:          cargoManifestSvc,
 		CommonSvc:                 commonSvc,
-		CompareSvc:                compareSvc,
-		DraftMAWBSvc:              draftMAWBSvc,
 		DropdownSvc:               dropdownSvc,
 		InboundExpressServiceSvc:  inboundExpressServiceSvc,
 		Ship2cuSvc:                ship2cuSvc,
@@ -193,9 +166,7 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		CustomerSvc:               customerSvc,
 		DashboardSvc:              dashboardSvc,
 		UserSvc:                   userSvc,
+		CompareSvc:                compareSvc,
 		SettingSvc:                settingSvc,
-
-		// Caching services
-		MAWBInfoCacheSvc: mawbInfoCacheSvc,
 	}
 }
