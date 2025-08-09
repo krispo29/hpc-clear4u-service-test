@@ -38,9 +38,12 @@ func main() {
 	// GCS
 	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {
-		dlog.Fatalf("Failed to create GCS client: %v", err)
+		dlog.Printf("WARNING: Failed to create GCS client: %v. GCS functionality will be disabled.", err)
 	}
-	_gcs := gcs.InitialGCSClient(config.GCSProjectID, config.GCSBucketName, gcsClient)
+	var _gcs *gcs.Client
+	if gcsClient != nil {
+		_gcs = gcs.InitialGCSClient(config.GCSProjectID, config.GCSBucketName, gcsClient)
+	}
 
 	// PostgreSQL
 	postgreSQLConn, err := database.NewPostgreSQLConnection(
