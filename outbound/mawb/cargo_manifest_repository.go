@@ -158,11 +158,7 @@ func (r repository) UpdateCargoManifestStatus(ctx context.Context, mawbInfoUUID,
 		return err
 	}
 
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
+	if res.RowsAffected() == 0 {
 		return sql.ErrNoRows // Indicate that no record was updated
 	}
 

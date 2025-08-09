@@ -128,7 +128,7 @@ func (r repository) CreateOrUpdateDraftMAWBV2(ctx context.Context, draft *DraftM
 	for _, item := range draft.Items {
 		var itemID int
 		itemQuery := `INSERT INTO draft_mawb_items (draft_mawb_uuid, pieces_rcp, gross_weight, nature_and_quantity) VALUES (?, ?, ?, ?) RETURNING id`
-		err := tx.QueryRowContext(ctx, &itemID, itemQuery, draft.UUID, item.PiecesRCP, item.GrossWeight, item.NatureAndQuantity)
+		_, err := tx.QueryOneContext(ctx, pg.Scan(&itemID), itemQuery, draft.UUID, item.PiecesRCP, item.GrossWeight, item.NatureAndQuantity)
 		if err != nil {
 			return nil, fmt.Errorf("inserting item: %w", err)
 		}
@@ -160,9 +160,7 @@ func (r repository) UpdateDraftMAWBStatusV2(ctx context.Context, mawbInfoUUID, s
 	if err != nil {
 		return err
 	}
-	if rows, err := res.RowsAffected(); err != nil {
-		return err
-	} else if rows == 0 {
+	if res.RowsAffected() == 0 {
 		return sql.ErrNoRows
 	}
 	return nil
