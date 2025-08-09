@@ -37,6 +37,7 @@ func (r *cargoManifestRepository) GetByMAWBInfoUUID(ctx context.Context, mawbInf
 
 	var manifest CargoManifest
 	err := db.Model(&manifest).
+		Table("cargo_manifest").
 		Where("mawb_info_uuid = ?", mawbInfoUUID).
 		Select()
 
@@ -49,6 +50,7 @@ func (r *cargoManifestRepository) GetByMAWBInfoUUID(ctx context.Context, mawbInf
 
 	// Now, load the items for the manifest
 	err = db.Model(&manifest.Items).
+		Table("cargo_manifest_items").
 		Where("cargo_manifest_uuid = ?", manifest.UUID).
 		Select()
 
@@ -76,7 +78,7 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 
 	// Check if a manifest already exists for this mawb_info_uuid
 	existingManifest := &CargoManifest{}
-	err = tx.Model(existingManifest).Where("mawb_info_uuid = ?", manifest.MAWBInfoUUID).Select()
+	err = tx.Model(existingManifest).Table("cargo_manifest").Where("mawb_info_uuid = ?", manifest.MAWBInfoUUID).Select()
 
 	if err != nil && err != pg.ErrNoRows {
 		return nil, utils.PostgresErrorTransform(err)
@@ -85,18 +87,18 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 	if existingManifest.UUID != "" { // Update existing
 		manifest.UUID = existingManifest.UUID
 		manifest.CreatedAt = existingManifest.CreatedAt
-		_, err = tx.Model(manifest).WherePK().Update()
+		_, err = tx.Model(manifest).Table("cargo_manifest").WherePK().Update()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
 
 		// Delete old items
-		_, err = tx.Model(&CargoManifestItem{}).Where("cargo_manifest_uuid = ?", manifest.UUID).Delete()
+		_, err = tx.Model(&CargoManifestItem{}).Table("cargo_manifest_items").Where("cargo_manifest_uuid = ?", manifest.UUID).Delete()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
 	} else { // Insert new
-		_, err = tx.Model(manifest).Insert()
+		_, err = tx.Model(manifest).Table("cargo_manifest").Insert()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -108,7 +110,7 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 	}
 
 	if len(manifest.Items) > 0 {
-		_, err = tx.Model(&manifest.Items).Insert()
+		_, err = tx.Model(&manifest.Items).Table("cargo_manifest_items").Insert()
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
@@ -132,6 +134,7 @@ func (r *cargoManifestRepository) UpdateStatus(ctx context.Context, mawbInfoUUID
 	}
 
 	res, err := db.Model(&CargoManifest{}).
+		Table("cargo_manifest").
 		Set("status = ?, updated_at = ?", status, time.Now()).
 		Where("mawb_info_uuid = ?", mawbInfoUUID).
 		Update()
