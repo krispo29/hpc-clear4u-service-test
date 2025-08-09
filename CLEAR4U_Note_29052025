@@ -1,0 +1,106 @@
+29/05/2025
+แก้ไข
+1. หน้า Manifest Upload [Inbound, Outbound]
+  1.1 เอา Download Pre-Import ออก
+  1.2 เอาหน้า Upload List มาแทน Download Pre-Import
+  1.3 ส่วน Upload List เพิ่มปุ่มดาวน์โหลด โดยให้เอาเงื่อนไขจาก Download Pre-Import มา
+  1.4 ส่วน Upload List เพิ่มข้อมูล cat2Total, cat2Vat, cat3Total, cat3Vat, cat3Duty, cat3DutyAndVat, Total Tax, Total Hawb
+    {
+      cat2: {
+        total: 2,
+        vat: 10
+      },
+      cat3: {
+        total: 10,
+        vat: 20,
+        duty: 11,
+        dutyAndVat: 21,
+      },
+      totalTax: 100,
+      totalHAWB: 12
+    }
+  1.5 ส่วน Upload List ปุ่มเพื่อไปยังหน้าแสดงข้อมูลทั้งหมดภายใน Upload นั้นๆ
+2. ลบหน้า Upload List ออก
+3. หน้า Update Manifest
+  3.1 เอา Download Pre-Import ออก
+  3.2 เอาหน้า Upload List มาแทน Download Pre-Import
+  3.3 ส่วน Upload List เพิ่มปุ่มดาวน์โหลด โดยให้เอาเงื่อนไขจาก Download Pre-Import มา
+4. ลบหน้า Update List ออก
+
+
+FRONT
+1. Settings
+  1.1 HS Code
+    1.1.1 หน้าลิส HS Code
+    1.1.2 หน้าแก้ไข HS Code
+    1.1.3 หน้าสร้าง HS Code
+    1.1.4 ข้อมูลที่ต้องใส่
+      1.1.4.1 Goods EN [String]
+      1.1.4.1 Goods TH [String]
+      1.1.4.1 HS Code [String]
+      1.1.4.1 Tariff [String]
+      1.1.4.1 Stat [String]
+      1.1.4.1 Unit Code [String]
+      1.1.4.1 Duty Rate [Float]
+      1.1.4.1 Air Service Charge [Integer]
+      1.1.4.1 Sea Service Charge [Integer]
+      1.1.4.1 FOB Price Control [Integer]
+      1.1.4.1 FOB Price Control Origin Currency Code [Dropdown]
+      1.1.4.1 FOB Price Control Origin Country Code [Dropdown]
+      1.1.4.1 Weight Control (KGM)
+      1.1.4.1 CIF Control [Integer]
+      1.1.4.1 CIF Control Destination Currency Code [Dropdown]
+      1.1.4.1 CIF Control Destination Country Code [Dropdown]
+    1.1.5 ปุ่มเปิด/ปิดการใช้งาน
+2. หน้าเทียบข้อมูล Goods
+  2.1 มี Template Dropdown ให้เลืิอก
+  2.2 เลือกไฟล์ Excel 
+  2.3 แสดงผลลัพธ์ เป็น Excel
+3. หน้า Outbound -> MAWB Info -> List มีข้อมูลดังนี้
+  3.1 MAWB
+  3.2 Date
+  3.3 Service Type (Cargo, Transit)
+  3.4 Shipping Type (Sea, Air)
+  3.5 Chargeable Weight
+4. หน้าสร้าง MAWB Info
+5. หน้าแสดงรายละเอียด MAWB Info
+  5.1 ปุ่มสร้าง Draft MAWB
+  5.2 สร้าง Draft Cargo Manifest
+  5.3 มีปุ่มคลิกดู Draft MAWB
+  5.4 กรณีที่ Admin เป็นคนสร้าง 
+    5.4.1 มีปุ่มส่งให้กับลูกค้ายืนยัน Draft MAWB
+    5.4.2 กรณีลูกค้า "ยืนยัน" มีปุ่มให้ Admin "ยืนยัน" Draft MAWB
+    5.4.2 กรณีลูกค้่า "ปฏิเสธ" Admin จะทำการแก้ไขแล้วส่งให้ลูกค้ายืนยันใหม่หรือ  "ยกเลิก" ก็ได้ มี Remark ให้ใส่
+  5.5 กรณีที่ ลูกค้า เป็นคนสร้าง 
+    5.5.1 มีปุ่มให้ Admin "ยืนยัน" Draft MAWB
+    5.5.2 มีปุ่มให้ Admin "ปฏิเสธ" Draft MAWB มี Remark ให้ใส่
+  5.6 มีปุ่มคลิกดู Draft Cargo Manifest
+  5.7 มีปุ่มยืนยัน Draft Cargo Manifest [Wait Confirm]
+  5.8 มีปุ่มไม่ผ่านการยืนยัน Draft Cargo Manifest
+  5.9 สามารถแนบไฟล์ได้
+  5.10 แสดงไฟล์แนบทั้งหมด เช่น ใบชั่งจากการบินไทย, ใบขน เป็นต้น
+6. Feedback แก้ไข Draft MAWB
+  6.1 ไม่มีช่องให้ใส่ logo หรือชื่อของสายกา
+  6.2 Accounting Information ใส่หลายบรรทัดได้ไหมค่ะ บาง agent ต้องใส่ notity ที่เป็นที่อยู่บริษัท
+  6.3 CHGS Code  หากเราใส่เป็น PP หรือ CC  ให้ Auto ค่า WT/VAL PPD, Other PPD, WT/VAL COLL, Other COLL มาเลยได้ไหม
+  6.4 เพิ่มช่อง dims -> หากมีการใส่ dims ให้คำนวน chargeable weight ด้วย
+  6.5 ให้ ช่อง total อยากให้คำนวนค่ามาให้เลย
+  6.6 เปิดช่องให้สามารถใส่ Shipping M
+  6.7 ค่า rate charge ต่างๆ  
+    6.7.1 หลักๆ TERMINAL CHARG
+    6.7.2 AWB FREE 
+    6.7.3 MY
+    6.7.4 CS
+    6.7.5 และเพิ่มช่องให้ใ่ค่าอื่นๆๆเพิ่มได้อีก แต่ละสายการบินมี rate charge ไม่เหมือนกัน
+  6.8 สามารถที่จะ copy  หน้า mawb เดิมเพิ่อไปแก้ไขได้ (กรณีที่ปิดเอสาร งาน shipper consingee เดิมๆ
+  6.9 รวมค่า rate charge ให้มายู่ใน Total other charge due carrier [Check]
+  6.10 sum ค่าเเต่ละรายการ ( prepaid, total other charges due agent, ไว้ที่ช่อง total prepaid [Check]
+  6.11 **หากช่องใหนที่ไม่ได้เติมค่าไป ไม่ต้องโชว์ในหน้ามาสเตอร์*** [Check]
+
+Backend
+1. Settings
+  1.1 HS Code
+    1.1.1 HS Code ทั้งหมด
+    1.1.2 แก้ไข HS Code
+    1.1.1 สร้าง HS Code
+    1.1.1 ปิดการใช้งาน

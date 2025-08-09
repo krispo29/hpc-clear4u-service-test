@@ -36,5 +36,9 @@ staging:
 	docker build -t ${GCR_URL_STAGING} .
 	docker -- push ${GCR_URL_STAGING}
 
+.PHONY: migrate
+migrate:
+	go run cmd/migrate/main.go
+
 .PHONY: all
 all: build push

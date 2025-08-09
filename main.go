@@ -17,6 +17,7 @@ import (
 	"hpc-express-service/database"
 	"hpc-express-service/factory"
 	"hpc-express-service/gcs"
+	"hpc-express-service/pdf"
 	"hpc-express-service/server"
 )
 
@@ -71,6 +72,13 @@ func main() {
 		Logging Factory
 	*/
 	factory.InitialLoggingFactory(logger, svcFactory)
+
+	/*
+		PDF Services Initialization
+	*/
+	if err := pdf.InitializePDFServices(); err != nil {
+		logger.Log("PDFServices", "initialization failed", err)
+	}
 
 	// Initial Server
 	srv := server.New(

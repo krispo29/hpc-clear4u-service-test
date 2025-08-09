@@ -18,6 +18,7 @@ import (
 
 	"hpc-express-service/constant"
 	"hpc-express-service/factory"
+	custommiddleware "hpc-express-service/middleware"
 )
 
 type Server struct {
@@ -92,10 +93,21 @@ func New(
 	})
 	r.Use(cors.Handler)
 
+	// Security middleware chain
+	securityConfig := custommiddleware.DefaultSecurityConfig()
+	securityMiddlewares := custommiddleware.CreateSecurityMiddlewareChain(securityConfig)
+	for _, securityMw := range securityMiddlewares {
+		r.Use(securityMw)
+	}
+
+	// Custom error handling middleware
+	r.Use(custommiddleware.ErrorRecoveryMiddleware)
+	r.Use(custommiddleware.RequestLoggingMiddleware)
+	r.Use(custommiddleware.ErrorResponseStandardizationMiddleware)
+
+	// Standard Chi middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(addCtx("postgreSQLConn", s.postgreSQLConn))
@@ -138,7 +150,7 @@ func New(
 			dropdownSvc := dropdownHandler{s.svcFactory.DropdownSvc}
 			r.Mount("/dropdown", dropdownSvc.router())
 
-			mawbInfoSvc := mawbInfoHandler{s.svcFactory.MawbInfoSvc}
+			mawbInfoSvc := newMawbInfoHandler(s.svcFactory.MawbInfoSvc, s.svcFactory.CargoManifestSvc, s.svcFactory.DraftMAWBSvc)
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
 
 			compareSvc := excelHandler{s.svcFactory.CompareSvc}

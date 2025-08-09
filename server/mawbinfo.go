@@ -9,11 +9,24 @@ import (
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator"
 
+	"hpc-express-service/cargo_manifest"
+	"hpc-express-service/draft_mawb"
 	"hpc-express-service/outbound/mawbinfo"
 )
 
 type mawbInfoHandler struct {
-	s mawbinfo.Service
+	s                mawbinfo.Service
+	cargoManifestSvc cargo_manifest.Service
+	draftMAWBSvc     draft_mawb.Service
+}
+
+// newMawbInfoHandler creates a new mawbInfoHandler with optional services
+func newMawbInfoHandler(mawbInfoSvc mawbinfo.Service, cargoManifestSvc cargo_manifest.Service, draftMAWBSvc draft_mawb.Service) *mawbInfoHandler {
+	return &mawbInfoHandler{
+		s:                mawbInfoSvc,
+		cargoManifestSvc: cargoManifestSvc,
+		draftMAWBSvc:     draftMAWBSvc,
+	}
 }
 
 func (h *mawbInfoHandler) router() chi.Router {
@@ -24,6 +37,25 @@ func (h *mawbInfoHandler) router() chi.Router {
 	r.Put("/{uuid}", h.updateMawbInfo)
 	r.Delete("/{uuid}", h.deleteMawbInfo)
 	r.Delete("/{uuid}/attachments", h.deleteMawbInfoAttachment)
+
+	// Add sub-routes for cargo manifest and draft MAWB
+	r.Route("/{uuid}", func(r chi.Router) {
+		// Add UUID validation middleware
+		r.Use(h.validateUUIDMiddleware)
+
+		// Mount cargo manifest sub-routes
+		if h.cargoManifestSvc != nil {
+			cargoManifestHandler := &cargoManifestHandler{service: h.cargoManifestSvc}
+			r.Mount("/cargo-manifest", cargoManifestHandler.router())
+		}
+
+		// Mount draft MAWB sub-routes
+		if h.draftMAWBSvc != nil {
+			draftMAWBHandler := &draftMAWBHandler{service: h.draftMAWBSvc}
+			r.Mount("/draft-mawb", draftMAWBHandler.router())
+		}
+	})
+
 	return r
 }
 
@@ -215,4 +247,24 @@ func (h *mawbInfoHandler) deleteMawbInfoAttachment(w http.ResponseWriter, r *htt
 
 	// Return success response
 	render.Respond(w, r, SuccessResponse(nil, "attachment deleted successfully"))
+}
+
+// validateUUIDMiddleware validates the UUID parameter format
+func (h *mawbInfoHandler) validateUUIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uuid := chi.URLParam(r, "uuid")
+		if uuid == "" {
+			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("UUID parameter is required")))
+			return
+		}
+
+		// Basic UUID format validation (36 characters with hyphens)
+		if len(uuid) != 36 {
+			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("invalid UUID format")))
+			return
+		}
+
+		// Continue to next handler
+		next.ServeHTTP(w, r)
+	})
 }

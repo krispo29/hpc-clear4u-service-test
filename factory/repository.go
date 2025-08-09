@@ -2,9 +2,11 @@ package factory
 
 import (
 	"hpc-express-service/auth"
+	"hpc-express-service/cargo_manifest"
 	"hpc-express-service/common"
 	"hpc-express-service/customer"
 	"hpc-express-service/dashboard"
+	"hpc-express-service/draft_mawb"
 	"hpc-express-service/dropdown"
 	inbound "hpc-express-service/inbound/express"
 	"hpc-express-service/mawb"
@@ -22,8 +24,10 @@ import (
 
 type RepositoryFactory struct {
 	AuthRepo                      auth.Repository
+	CargoManifestRepo             cargo_manifest.Repository
 	CommonRepo                    common.Repository
 	CompareRepo                   compare.ExcelRepositoryInterface
+	DraftMAWBRepo                 draft_mawb.Repository
 	DropdownRepo                  dropdown.Repository
 	InboundExpressRepositoryRepo  inbound.InboundExpressRepository
 	Ship2cuRepo                   ship2cu.Repository
@@ -44,7 +48,10 @@ func NewRepositoryFactory() *RepositoryFactory {
 
 	return &RepositoryFactory{
 		AuthRepo:                      auth.NewRepository(timeoutContext),
+		CargoManifestRepo:             cargo_manifest.NewRepository(timeoutContext),
 		CommonRepo:                    common.NewRepository(timeoutContext),
+		CompareRepo:                   compare.NewExcelRepository(timeoutContext),
+		DraftMAWBRepo:                 draft_mawb.NewRepository(timeoutContext),
 		DropdownRepo:                  dropdown.NewRepository(),
 		InboundExpressRepositoryRepo:  inbound.NewInboundExpressRepository(timeoutContext),
 		Ship2cuRepo:                   ship2cu.NewRepository(timeoutContext),
@@ -57,7 +64,6 @@ func NewRepositoryFactory() *RepositoryFactory {
 		CustomerRepo:                  customer.NewRepository(timeoutContext),
 		DashboardRepo:                 dashboard.NewRepository(timeoutContext),
 		UserRepo:                      user.NewRepository(timeoutContext),
-		CompareRepo:                   compare.NewExcelRepository(timeoutContext),
 		SettingRepo:                   setting.NewRepository(timeoutContext),
 	}
 }
