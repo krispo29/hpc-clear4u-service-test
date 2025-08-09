@@ -36,10 +36,8 @@ func (r *cargoManifestRepository) GetByMAWBInfoUUID(ctx context.Context, mawbInf
 	}
 
 	var manifest CargoManifest
-	err := db.Model(&manifest).
-		Table("cargo_manifest").
-		Where("mawb_info_uuid = ?", mawbInfoUUID).
-		Select()
+	selectSQL := `SELECT uuid, mawb_info_uuid, mawb_number, port_of_discharge, flight_no, freight_date, shipper, consignee, total_ctn, transshipment, status, created_at, updated_at FROM cargo_manifest WHERE mawb_info_uuid = ?`
+	_, err := db.QueryOneContext(ctx, &manifest, selectSQL, mawbInfoUUID)
 
 	if err != nil {
 		if err == pg.ErrNoRows {
@@ -49,10 +47,8 @@ func (r *cargoManifestRepository) GetByMAWBInfoUUID(ctx context.Context, mawbInf
 	}
 
 	// Now, load the items for the manifest
-	err = db.Model(&manifest.Items).
-		Table("cargo_manifest_items").
-		Where("cargo_manifest_uuid = ?", manifest.UUID).
-		Select()
+	selectItemsSQL := `SELECT id, cargo_manifest_uuid, hawb_no, pkgs, gross_weight, destination, commodity, shipper_name_address, consignee_name_address FROM cargo_manifest_items WHERE cargo_manifest_uuid = ?`
+	_, err = db.QueryContext(ctx, &manifest.Items, selectItemsSQL, manifest.UUID)
 
 	if err != nil && err != pg.ErrNoRows {
 		return nil, utils.PostgresErrorTransform(err)
@@ -77,42 +73,63 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 	defer tx.Rollback()
 
 	// Check if a manifest already exists for this mawb_info_uuid
-	existingManifest := &CargoManifest{}
-	err = tx.Model(existingManifest).Table("cargo_manifest").Where("mawb_info_uuid = ?", manifest.MAWBInfoUUID).Select()
+	var existingUUID string
+	checkSQL := `SELECT uuid FROM cargo_manifest WHERE mawb_info_uuid = ?`
+	_, err = tx.QueryOneContext(ctx, pg.Scan(&existingUUID), checkSQL, manifest.MAWBInfoUUID)
 
 	if err != nil && err != pg.ErrNoRows {
 		return nil, utils.PostgresErrorTransform(err)
 	}
 
-	if existingManifest.UUID != "" { // Update existing
-		manifest.UUID = existingManifest.UUID
-		manifest.CreatedAt = existingManifest.CreatedAt
-		_, err = tx.Model(manifest).Table("cargo_manifest").WherePK().Update()
+	if existingUUID != "" { // Update existing
+		manifest.UUID = existingUUID
+		updateSQL := `UPDATE cargo_manifest SET
+			mawb_number = ?, port_of_discharge = ?, flight_no = ?, freight_date = ?, shipper = ?, consignee = ?,
+			total_ctn = ?, transshipment = ?, status = ?, updated_at = ?
+			WHERE uuid = ?`
+		_, err = tx.ExecContext(ctx, updateSQL,
+			manifest.MAWBNumber, manifest.PortOfDischarge, manifest.FlightNo, manifest.FreightDate, manifest.Shipper, manifest.Consignee,
+			manifest.TotalCtn, manifest.Transshipment, manifest.Status, time.Now(), manifest.UUID)
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
 
 		// Delete old items
-		_, err = tx.Model(&CargoManifestItem{}).Table("cargo_manifest_items").Where("cargo_manifest_uuid = ?", manifest.UUID).Delete()
+		deleteItemsSQL := `DELETE FROM cargo_manifest_items WHERE cargo_manifest_uuid = ?`
+		_, err = tx.ExecContext(ctx, deleteItemsSQL, manifest.UUID)
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
 	} else { // Insert new
-		_, err = tx.Model(manifest).Table("cargo_manifest").Insert()
+		insertSQL := `INSERT INTO cargo_manifest (
+			mawb_info_uuid, mawb_number, port_of_discharge, flight_no, freight_date, shipper, consignee,
+			total_ctn, transshipment, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING uuid`
+		_, err = tx.QueryOneContext(ctx, pg.Scan(&manifest.UUID), insertSQL,
+			manifest.MAWBInfoUUID, manifest.MAWBNumber, manifest.PortOfDischarge, manifest.FlightNo, manifest.FreightDate, manifest.Shipper, manifest.Consignee,
+			manifest.TotalCtn, manifest.Transshipment, manifest.Status)
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
 		}
 	}
 
 	// Insert new items
-	for i := range manifest.Items {
-		manifest.Items[i].CargoManifestUUID = manifest.UUID
-	}
-
 	if len(manifest.Items) > 0 {
-		_, err = tx.Model(&manifest.Items).Table("cargo_manifest_items").Insert()
+		insertItemSQL := `INSERT INTO cargo_manifest_items (
+			cargo_manifest_uuid, hawb_no, pkgs, gross_weight, destination, commodity, shipper_name_address, consignee_name_address
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		stmt, err := tx.Prepare(insertItemSQL) // Corrected: removed Context
 		if err != nil {
 			return nil, utils.PostgresErrorTransform(err)
+		}
+		defer stmt.Close()
+
+		for _, item := range manifest.Items {
+			_, err = stmt.ExecContext(ctx,
+				manifest.UUID, item.HAWBNo, item.Pkgs, item.GrossWeight, item.Destination, item.Commodity, item.ShipperNameAndAddress, item.ConsigneeNameAndAddress)
+			if err != nil {
+				return nil, utils.PostgresErrorTransform(err)
+			}
 		}
 	}
 
@@ -133,16 +150,14 @@ func (r *cargoManifestRepository) UpdateStatus(ctx context.Context, mawbInfoUUID
 		return err
 	}
 
-	res, err := db.Model(&CargoManifest{}).
-		Table("cargo_manifest").
-		Set("status = ?, updated_at = ?", status, time.Now()).
-		Where("mawb_info_uuid = ?", mawbInfoUUID).
-		Update()
+	updateSQL := `UPDATE cargo_manifest SET status = ?, updated_at = ? WHERE mawb_info_uuid = ?`
+	res, err := db.ExecContext(ctx, updateSQL, status, time.Now(), mawbInfoUUID)
 
 	if err != nil {
 		return utils.PostgresErrorTransform(err)
 	}
-	if res.RowsAffected() == 0 {
+	rowsAffected := res.RowsAffected() // Corrected: single return value
+	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
 
