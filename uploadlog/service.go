@@ -72,6 +72,9 @@ func (s *service) UploadLogFile(ctx context.Context, data *UploadFileModel) (str
 	// Determine content type
 	contentType := "application/octet-stream" // default
 
+	if s.gcsClient == nil {
+		return "", fmt.Errorf("GCS client is not initialized")
+	}
 	_, objAttrs, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(data.FileBytes), fullPath, true, contentType)
 	if err != nil {
 		return "", err
