@@ -26,6 +26,20 @@ type OutboundMawbService interface {
 	SaveDraftMawb(ctx context.Context, data *RequestDraftModel) (bytes.Buffer, error)
 	UpdateDraftMawb(ctx context.Context, data *RequestUpdateMawbDraftModel) (bytes.Buffer, error)
 	generateDraftMawb(ctx context.Context, data *RequestDraftModel, isPreview bool) (bytes.Buffer, error)
+
+	// Cargo Manifest
+	GetCargoManifestByMAWBInfoUUID(ctx context.Context, mawbInfoUUID string) (*CargoManifest, error)
+	CreateOrUpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	ConfirmCargoManifest(ctx context.Context, mawbInfoUUID string) error
+	RejectCargoManifest(ctx context.Context, mawbInfoUUID string) error
+	PrintCargoManifest(ctx context.Context, mawbInfoUUID string) (bytes.Buffer, error)
+
+	// Draft V2
+	GetDraftMAWBByMAWBInfoUUIDV2(ctx context.Context, mawbInfoUUID string) (*DraftMAWBV2, error)
+	CreateOrUpdateDraftMAWBV2(ctx context.Context, draft *DraftMAWBV2) (*DraftMAWBV2, error)
+	ConfirmDraftMAWBV2(ctx context.Context, mawbInfoUUID string) error
+	RejectDraftMAWBV2(ctx context.Context, mawbInfoUUID string) error
+	PrintDraftMAWBV2(ctx context.Context, mawbInfoUUID string) (bytes.Buffer, error)
 }
 
 type service struct {
