@@ -6,6 +6,7 @@ import (
 )
 
 type CargoManifest struct {
+	tableName       struct{}            `pg:"public.cargo_manifest"`
 	UUID            string              `json:"uuid" db:"uuid"`
 	MAWBInfoUUID    string              `json:"mawb_info_uuid" db:"mawb_info_uuid"`
 	MAWBNumber      string              `json:"mawbNumber" db:"mawb_number"`
@@ -27,13 +28,14 @@ func (c *CargoManifest) Bind(r *http.Request) error {
 }
 
 type CargoManifestItem struct {
-	ID                      int    `json:"id" db:"id"`
-	CargoManifestUUID       string `json:"cargo_manifest_uuid" db:"cargo_manifest_uuid"`
-	HAWBNo                  string `json:"hawbNo" db:"hawb_no"`
-	Pkgs                    string `json:"pkgs" db:"pkgs"`
-	GrossWeight             string `json:"grossWeight" db:"gross_weight"`
-	Destination             string `json:"dst" db:"destination"`
-	Commodity               string `json:"commodity" db:"commodity"`
-	ShipperNameAndAddress   string `json:"shipperNameAndAddress" db:"shipper_name_address"`
-	ConsigneeNameAndAddress string `json:"consigneeNameAndAddress" db:"consignee_name_address"`
+	tableName               struct{} `pg:"public.cargo_manifest_items"`
+	ID                      int      `json:"id" db:"id"`
+	CargoManifestUUID       string   `json:"cargo_manifest_uuid" db:"cargo_manifest_uuid"`
+	HAWBNo                  string   `json:"hawbNo" db:"hawb_no"`
+	Pkgs                    string   `json:"pkgs" db:"pkgs"`
+	GrossWeight             string   `json:"grossWeight" db:"gross_weight"`
+	Destination             string   `json:"dst" db:"destination"`
+	Commodity               string   `json:"commodity" db:"commodity"`
+	ShipperNameAndAddress   string   `json:"shipperNameAndAddress" db:"shipper_name_address"`
+	ConsigneeNameAndAddress string   `json:"consigneeNameAndAddress" db:"consignee_name_address"`
 }
