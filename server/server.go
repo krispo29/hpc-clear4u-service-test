@@ -260,6 +260,27 @@ func New(
 		render.Respond(w, r, SuccessResponse(drafts, "Success"))
 	})
 
+	// Test endpoint for GET draft MAWB by UUID (no auth required)
+	r.Get("/test/draft-mawb/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		uuid := chi.URLParam(r, "uuid")
+		if uuid == "" {
+			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+			return
+		}
+
+		draft, err := s.svcFactory.DraftMAWBSvc.GetDraftMAWBByUUID(r.Context(), uuid)
+		if err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+		if draft == nil {
+			render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Draft MAWB not found"})
+			return
+		}
+
+		render.Respond(w, r, SuccessResponse(draft, "Success"))
+	})
+
 	s.router = r
 
 	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {

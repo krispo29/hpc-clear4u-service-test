@@ -122,6 +122,8 @@ type DraftMAWBListItem struct {
 	ConsigneeNameAndAddress string `json:"consigneeNameAndAddress"`
 	CustomerName            string `json:"customerName"`
 	CreatedAt               string `json:"createdAt"`
+	Status                  string `json:"status"`
+	IsDeleted               bool   `json:"isDeleted"`
 }
 
 // DraftMAWBInput is used for API input that includes items and charges

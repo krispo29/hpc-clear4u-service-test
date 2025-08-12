@@ -12,9 +12,12 @@ import (
 // DraftMAWBRepository defines the interface for draft MAWB database operations.
 type DraftMAWBRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
+	GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
 	CreateOrUpdate(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	UpdateStatus(ctx context.Context, uuid, status string) error
 	GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
+	CancelByMAWBUUID(ctx context.Context, mawbUUID string) error
+	UndoCancelByMAWBUUID(ctx context.Context, mawbUUID string) error
 }
 
 type draftMAWBRepository struct{}
@@ -33,6 +36,27 @@ func (r *draftMAWBRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string
 	draft := &DraftMAWB{}
 	err = q.Model(draft).
 		Where("mawb_info_uuid = ?", mawbUUID).
+		Select()
+
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return draft, nil
+}
+
+func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error) {
+	q, err := getQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	draft := &DraftMAWB{}
+	err = q.Model(draft).
+		Where("uuid = ?", uuid).
 		Select()
 
 	if err != nil {
@@ -121,7 +145,9 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 			COALESCE(dm.shipper_name_and_address, '') as shipper_name_and_address,
 			COALESCE(dm.consignee_name_and_address, '') as consignee_name_and_address,
 			COALESCE(c.name, '') as customer_name,
-			TO_CHAR(dm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') as created_at
+			TO_CHAR(dm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') as created_at,
+			COALESCE(dm.status, 'Draft') as status,
+			CASE WHEN dm.status = 'Cancelled' THEN true ELSE false END as is_deleted
 		FROM public.draft_mawb dm
 		LEFT JOIN public.tbl_mawb_info mi ON dm.mawb_info_uuid::text = mi.uuid::text
 		LEFT JOIN public.tbl_customers c ON dm.customer_uuid::text = c.uuid::text
@@ -154,4 +180,24 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 	}
 
 	return items, nil
+}
+
+// CancelByMAWBUUID cancels a draft MAWB by setting status to 'Cancelled'
+func (r *draftMAWBRepository) CancelByMAWBUUID(ctx context.Context, mawbUUID string) error {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.Model(&DraftMAWB{}).
+		Set("status = ?, updated_at = ?", "Cancelled", time.Now()).
+		Where("mawb_info_uuid = ?", mawbUUID).
+		Update()
+	return err
+}
+
+// UndoCancelByMAWBUUID recovers a cancelled draft MAWB by setting status back to 'Draft'
+func (r *draftMAWBRepository) UndoCancelByMAWBUUID(ctx context.Context, mawbUUID string) error {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.Model(&DraftMAWB{}).
+		Set("status = ?, updated_at = ?", "Draft", time.Now()).
+		Where("mawb_info_uuid = ?", mawbUUID).
+		Update()
+	return err
 }

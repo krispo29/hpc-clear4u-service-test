@@ -27,6 +27,9 @@ func (h *mawbInfoHandler) router() chi.Router {
 	// Draft MAWB List Route (without uuid parameter)
 	r.Get("/draft-mawb", h.getAllDraftMAWB)
 
+	// Draft MAWB Detail Route by draft UUID (not mawb_info_uuid)
+	r.Get("/draft-mawb/{draft_uuid}", h.getDraftMAWBByUUID)
+
 	r.Route("/{uuid}", func(r chi.Router) {
 		r.Get("/", h.getMawbInfo)
 		r.Put("/", h.updateMawbInfo)
@@ -47,6 +50,10 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Post("/draft-mawb/confirm", h.confirmDraftMAWB)
 		r.Post("/draft-mawb/reject", h.rejectDraftMAWB)
 		r.Get("/draft-mawb/print", h.printDraftMAWB)
+
+		// MAWB management routes
+		r.Get("/cancel", h.cancelMAWB)
+		r.Get("/undo_cancel", h.undoCancelMAWB)
 	})
 
 	return r
@@ -245,6 +252,58 @@ func (h *mawbInfoHandler) getAllDraftMAWB(w http.ResponseWriter, r *http.Request
 	}
 
 	render.Respond(w, r, SuccessResponse(drafts, "Success"))
+}
+
+func (h *mawbInfoHandler) getDraftMAWBByUUID(w http.ResponseWriter, r *http.Request) {
+	draftUUID := chi.URLParam(r, "draft_uuid")
+	if draftUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("draft_uuid parameter is required")))
+		return
+	}
+
+	draft, err := h.draftMAWBSvc.GetDraftMAWBByUUID(r.Context(), draftUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if draft == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Draft MAWB not found"})
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(draft, "Success"))
+}
+
+func (h *mawbInfoHandler) cancelMAWB(w http.ResponseWriter, r *http.Request) {
+	uuid := chi.URLParam(r, "uuid")
+	if uuid == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	err := h.draftMAWBSvc.CancelDraftMAWB(r.Context(), uuid)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "MAWB cancelled successfully"))
+}
+
+func (h *mawbInfoHandler) undoCancelMAWB(w http.ResponseWriter, r *http.Request) {
+	uuid := chi.URLParam(r, "uuid")
+	if uuid == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	err := h.draftMAWBSvc.UndoCancelDraftMAWB(r.Context(), uuid)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "MAWB recovered successfully"))
 }
 
 func (h *mawbInfoHandler) createMawbInfo(w http.ResponseWriter, r *http.Request) {
