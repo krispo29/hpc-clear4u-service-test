@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 
 	"hpc-express-service/constant"
 	"hpc-express-service/factory"
+	"hpc-express-service/outbound"
 )
 
 type Server struct {
@@ -193,6 +195,69 @@ func New(
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		render.Respond(w, r, SuccessResponse(nil, "OK"))
+	})
+
+	// Test endpoint for draft MAWB (no auth required)
+	r.Post("/test/draft-mawb/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		mawbUUID := chi.URLParam(r, "uuid")
+		if mawbUUID == "" {
+			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+			return
+		}
+
+		data := &outbound.DraftMAWB{}
+		if err := render.Bind(r, data); err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+		data.MAWBInfoUUID = mawbUUID
+
+		result, err := s.svcFactory.DraftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+		if err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+
+		render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB created/updated successfully"))
+	})
+
+	// Test endpoint for PATCH draft MAWB (no auth required)
+	r.Patch("/test/draft-mawb/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		mawbUUID := chi.URLParam(r, "uuid")
+		if mawbUUID == "" {
+			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+			return
+		}
+
+		data := &outbound.DraftMAWB{}
+		if err := render.Bind(r, data); err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+		data.MAWBInfoUUID = mawbUUID
+
+		result, err := s.svcFactory.DraftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+		if err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+
+		render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB updated successfully"))
+	})
+
+	// Test endpoint for GET all draft MAWB (no auth required)
+	r.Get("/test/draft-mawb", func(w http.ResponseWriter, r *http.Request) {
+		// Get query parameters
+		startDate := r.URL.Query().Get("start")
+		endDate := r.URL.Query().Get("end")
+
+		drafts, err := s.svcFactory.DraftMAWBSvc.GetAllDraftMAWB(r.Context(), startDate, endDate)
+		if err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+
+		render.Respond(w, r, SuccessResponse(drafts, "Success"))
 	})
 
 	s.router = r

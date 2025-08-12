@@ -13,6 +13,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/go-pg/pg/v9 v9.2.1
 	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/lib/pq v1.10.9
@@ -51,7 +52,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect

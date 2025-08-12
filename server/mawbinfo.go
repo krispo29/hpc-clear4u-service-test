@@ -24,6 +24,9 @@ func (h *mawbInfoHandler) router() chi.Router {
 	r.Post("/", h.createMawbInfo)
 	r.Get("/", h.getAllMawbInfo)
 
+	// Draft MAWB List Route (without uuid parameter)
+	r.Get("/draft-mawb", h.getAllDraftMAWB)
+
 	r.Route("/{uuid}", func(r chi.Router) {
 		r.Get("/", h.getMawbInfo)
 		r.Put("/", h.updateMawbInfo)
@@ -40,6 +43,7 @@ func (h *mawbInfoHandler) router() chi.Router {
 		// Draft MAWB Routes
 		r.Get("/draft-mawb", h.getDraftMAWB)
 		r.Post("/draft-mawb", h.createOrUpdateDraftMAWB)
+		r.Patch("/draft-mawb", h.updateDraftMAWB)
 		r.Post("/draft-mawb/confirm", h.confirmDraftMAWB)
 		r.Post("/draft-mawb/reject", h.rejectDraftMAWB)
 		r.Get("/draft-mawb/print", h.printDraftMAWB)
@@ -173,6 +177,29 @@ func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http
 	render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB created/updated successfully"))
 }
 
+func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	data := &outbound.DraftMAWB{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	data.MAWBInfoUUID = mawbUUID
+
+	result, err := h.draftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB updated successfully"))
+}
+
 func (h *mawbInfoHandler) confirmDraftMAWB(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {
@@ -204,6 +231,20 @@ func (h *mawbInfoHandler) rejectDraftMAWB(w http.ResponseWriter, r *http.Request
 func (h *mawbInfoHandler) printDraftMAWB(w http.ResponseWriter, r *http.Request) {
 	// PDF generation logic goes here
 	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
+}
+
+func (h *mawbInfoHandler) getAllDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	// Get query parameters
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+
+	drafts, err := h.draftMAWBSvc.GetAllDraftMAWB(r.Context(), startDate, endDate)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(drafts, "Success"))
 }
 
 func (h *mawbInfoHandler) createMawbInfo(w http.ResponseWriter, r *http.Request) {
