@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,12 +13,15 @@ import (
 type DraftMAWBRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
 	GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
-	CreateOrUpdate(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
-	UpdateByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error)
+	Create(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
+	Update(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	UpdateStatus(ctx context.Context, uuid, status string) error
 	GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CancelByMAWBUUID(ctx context.Context, mawbUUID string) error
 	UndoCancelByMAWBUUID(ctx context.Context, mawbUUID string) error
+	CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
+	UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
+	GetWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error)
 }
 
 type draftMAWBRepository struct{}
@@ -68,8 +72,8 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 	return draft, nil
 }
 
-// CreateOrUpdate creates a new draft MAWB or updates an existing one.
-func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
+// Create creates a new draft MAWB
+func (r *draftMAWBRepository) Create(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 
 	// First check if MAWB Info exists
@@ -93,38 +97,24 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draftMAWB *Dra
 		}
 	}
 
-	// Check if draft MAWB already exists
-	existing, _ := r.GetByMAWBUUID(ctx, draftMAWB.MAWBInfoUUID)
-
-	if existing != nil {
-		// Update existing record
-		draftMAWB.UUID = existing.UUID
-		draftMAWB.CreatedAt = existing.CreatedAt // Keep original created_at
-		draftMAWB.UpdatedAt = time.Now()
-		_, err = db.Model(draftMAWB).WherePK().Update()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Create new record
-		draftMAWB.UUID = uuid.New().String()
-		draftMAWB.CreatedAt = time.Now()
-		draftMAWB.UpdatedAt = time.Now()
-		_, err = db.Model(draftMAWB).Insert()
-		if err != nil {
-			return nil, err
-		}
+	// Create new record
+	draftMAWB.UUID = uuid.New().String()
+	draftMAWB.CreatedAt = time.Now()
+	draftMAWB.UpdatedAt = time.Now()
+	_, err = db.Model(draftMAWB).Insert()
+	if err != nil {
+		return nil, err
 	}
 
-	return r.GetByMAWBUUID(ctx, draftMAWB.MAWBInfoUUID)
+	return r.GetByUUID(ctx, draftMAWB.UUID)
 }
 
-// UpdateByUUID updates an existing draft MAWB by its UUID
-func (r *draftMAWBRepository) UpdateByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
+// Update updates an existing draft MAWB
+func (r *draftMAWBRepository) Update(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 
-	// Get existing record to preserve certain fields
-	existing, err := r.GetByUUID(ctx, uuid)
+	// Get existing record to preserve created_at
+	existing, err := r.GetByUUID(ctx, draftMAWB.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,18 +122,16 @@ func (r *draftMAWBRepository) UpdateByUUID(ctx context.Context, uuid string, dra
 		return nil, pg.ErrNoRows
 	}
 
-	// Set the UUID and preserve created_at
-	draftMAWB.UUID = uuid
+	// Preserve created_at and update updated_at
 	draftMAWB.CreatedAt = existing.CreatedAt
 	draftMAWB.UpdatedAt = time.Now()
 
-	// Update the record
 	_, err = db.Model(draftMAWB).WherePK().Update()
 	if err != nil {
 		return nil, err
 	}
 
-	return r.GetByUUID(ctx, uuid)
+	return r.GetByUUID(ctx, draftMAWB.UUID)
 }
 
 // UpdateStatus updates the status of a draft MAWB.
@@ -226,4 +214,240 @@ func (r *draftMAWBRepository) UndoCancelByMAWBUUID(ctx context.Context, mawbUUID
 		Where("mawb_info_uuid = ?", mawbUUID).
 		Update()
 	return err
+}
+
+// CreateWithRelations creates a new draft MAWB with its items and charges
+func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// First check if MAWB Info exists
+	var mawbInfoExists bool
+	_, err = tx.QueryOne(pg.Scan(&mawbInfoExists),
+		"SELECT EXISTS(SELECT 1 FROM public.tbl_mawb_info WHERE uuid = ?)",
+		draftMAWB.MAWBInfoUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !mawbInfoExists {
+		// If MAWB Info doesn't exist, create a basic one
+		_, err = tx.Exec(`
+			INSERT INTO public.tbl_mawb_info (uuid, chargeable_weight, date, mawb, service_type, shipping_type, created_at, updated_at) 
+			VALUES (?, 0, CURRENT_DATE, 'AUTO-GENERATED', 'cargo', 'air', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			ON CONFLICT (uuid) DO NOTHING`,
+			draftMAWB.MAWBInfoUUID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Create new record
+	draftMAWB.UUID = uuid.New().String()
+	draftMAWB.CreatedAt = time.Now()
+	draftMAWB.UpdatedAt = time.Now()
+	_, err = tx.Model(draftMAWB).Insert()
+	if err != nil {
+		return nil, err
+	}
+
+	// No need to delete existing items and charges for create operation
+
+	// Insert new items
+	for _, itemInput := range items {
+		item := &DraftMAWBItem{
+			DraftMAWBUUID:     draftMAWB.UUID,
+			PiecesRCP:         itemInput.PiecesRCP,
+			GrossWeight:       fmt.Sprintf("%.2f", itemInput.GrossWeight),
+			KgLb:              itemInput.KgLb,
+			RateClass:         itemInput.RateClass,
+			TotalVolume:       itemInput.TotalVolume,
+			ChargeableWeight:  itemInput.ChargeableWeight,
+			RateCharge:        itemInput.RateCharge,
+			Total:             itemInput.Total,
+			NatureAndQuantity: itemInput.NatureAndQuantity,
+		}
+		_, err = tx.Model(item).Insert()
+		if err != nil {
+			return nil, err
+		}
+
+		// Insert dimensions for this item
+		for _, dimInput := range itemInput.Dims {
+			dim := &DraftMAWBItemDim{
+				DraftMAWBItemID: item.ID,
+				Length:          fmt.Sprintf("%d", dimInput.Length),
+				Width:           fmt.Sprintf("%d", dimInput.Width),
+				Height:          fmt.Sprintf("%d", dimInput.Height),
+				Count:           fmt.Sprintf("%d", dimInput.Count),
+			}
+			_, err = tx.Model(dim).Insert()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Insert new charges
+	for _, chargeInput := range charges {
+		charge := &DraftMAWBCharge{
+			DraftMAWBUUID: draftMAWB.UUID,
+			Key:           chargeInput.Key,
+			Value:         chargeInput.Value,
+		}
+		_, err = tx.Model(charge).Insert()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetByUUID(ctx, draftMAWB.UUID)
+}
+
+// UpdateWithRelations updates an existing draft MAWB with its items and charges
+func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Get existing record to preserve created_at
+	existing, err := r.GetByUUID(ctx, draftMAWB.UUID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, pg.ErrNoRows
+	}
+
+	// Update existing record
+	draftMAWB.CreatedAt = existing.CreatedAt // Keep original created_at
+	draftMAWB.UpdatedAt = time.Now()
+	_, err = tx.Model(draftMAWB).WherePK().Update()
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete existing items and charges
+	_, err = tx.Model((*DraftMAWBItem)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Model((*DraftMAWBCharge)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
+	if err != nil {
+		return nil, err
+	}
+
+	// Insert new items
+	for _, itemInput := range items {
+		item := &DraftMAWBItem{
+			DraftMAWBUUID:     draftMAWB.UUID,
+			PiecesRCP:         itemInput.PiecesRCP,
+			GrossWeight:       fmt.Sprintf("%.2f", itemInput.GrossWeight),
+			KgLb:              itemInput.KgLb,
+			RateClass:         itemInput.RateClass,
+			TotalVolume:       itemInput.TotalVolume,
+			ChargeableWeight:  itemInput.ChargeableWeight,
+			RateCharge:        itemInput.RateCharge,
+			Total:             itemInput.Total,
+			NatureAndQuantity: itemInput.NatureAndQuantity,
+		}
+		_, err = tx.Model(item).Insert()
+		if err != nil {
+			return nil, err
+		}
+
+		// Insert dimensions for this item
+		for _, dimInput := range itemInput.Dims {
+			dim := &DraftMAWBItemDim{
+				DraftMAWBItemID: item.ID,
+				Length:          fmt.Sprintf("%d", dimInput.Length),
+				Width:           fmt.Sprintf("%d", dimInput.Width),
+				Height:          fmt.Sprintf("%d", dimInput.Height),
+				Count:           fmt.Sprintf("%d", dimInput.Count),
+			}
+			_, err = tx.Model(dim).Insert()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Insert new charges
+	for _, chargeInput := range charges {
+		charge := &DraftMAWBCharge{
+			DraftMAWBUUID: draftMAWB.UUID,
+			Key:           chargeInput.Key,
+			Value:         chargeInput.Value,
+		}
+		_, err = tx.Model(charge).Insert()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetByUUID(ctx, draftMAWB.UUID)
+}
+
+// GetWithRelations retrieves a draft MAWB with its items and charges
+func (r *draftMAWBRepository) GetWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error) {
+	// Get the main draft MAWB
+	draft, err := r.GetByUUID(ctx, uuid)
+	if err != nil || draft == nil {
+		return nil, err
+	}
+
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Get items
+	var items []DraftMAWBItem
+	err = db.Model(&items).Where("draft_mawb_uuid = ?", uuid).Select()
+	if err != nil && err != pg.ErrNoRows {
+		return nil, err
+	}
+
+	// Get dimensions for each item
+	for i := range items {
+		var dims []DraftMAWBItemDim
+		err = db.Model(&dims).Where("draft_mawb_item_id = ?", items[i].ID).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return nil, err
+		}
+		items[i].Dims = dims
+	}
+
+	// Get charges
+	var charges []DraftMAWBCharge
+	err = db.Model(&charges).Where("draft_mawb_uuid = ?", uuid).Select()
+	if err != nil && err != pg.ErrNoRows {
+		return nil, err
+	}
+
+	return &DraftMAWBWithRelations{
+		DraftMAWB: draft,
+		Items:     items,
+		Charges:   charges,
+	}, nil
 }

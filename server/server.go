@@ -212,7 +212,19 @@ func New(
 		}
 		data.MAWBInfoUUID = mawbUUID
 
-		result, err := s.svcFactory.DraftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+		// Check if draft MAWB already exists for this MAWB UUID
+		existing, _ := s.svcFactory.DraftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+
+		var result *outbound.DraftMAWB
+		var err error
+		if existing != nil {
+			// Update existing draft MAWB
+			data.UUID = existing.UUID
+			result, err = s.svcFactory.DraftMAWBSvc.UpdateDraftMAWB(r.Context(), data, nil, nil)
+		} else {
+			// Create new draft MAWB
+			result, err = s.svcFactory.DraftMAWBSvc.CreateDraftMAWB(r.Context(), data, nil, nil)
+		}
 		if err != nil {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return
@@ -236,7 +248,20 @@ func New(
 		}
 		data.MAWBInfoUUID = mawbUUID
 
-		result, err := s.svcFactory.DraftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+		// For PATCH, we need to find the existing draft MAWB first
+		existing, err := s.svcFactory.DraftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+		if err != nil {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
+		}
+		if existing == nil {
+			render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Draft MAWB not found for this MAWB"})
+			return
+		}
+
+		// Update the existing draft MAWB
+		data.UUID = existing.UUID
+		result, err := s.svcFactory.DraftMAWBSvc.UpdateDraftMAWB(r.Context(), data, nil, nil)
 		if err != nil {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return

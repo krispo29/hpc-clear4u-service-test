@@ -168,14 +168,29 @@ func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http
 		return
 	}
 
-	data := &outbound.DraftMAWB{}
-	if err := render.Bind(r, data); err != nil {
+	inputData := &outbound.DraftMAWBInput{}
+	if err := render.Bind(r, inputData); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
+
+	// Convert input to DraftMAWB
+	data := inputData.ToDraftMAWB()
 	data.MAWBInfoUUID = mawbUUID
 
-	result, err := h.draftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+	// Check if draft MAWB already exists for this MAWB UUID
+	existing, _ := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+
+	var result *outbound.DraftMAWB
+	var err error
+	if existing != nil {
+		// Update existing draft MAWB
+		data.UUID = existing.UUID
+		result, err = h.draftMAWBSvc.UpdateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
+	} else {
+		// Create new draft MAWB
+		result, err = h.draftMAWBSvc.CreateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
+	}
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -191,8 +206,8 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	data := &outbound.DraftMAWB{}
-	if err := render.Bind(r, data); err != nil {
+	inputData := &outbound.DraftMAWBInput{}
+	if err := render.Bind(r, inputData); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
@@ -208,9 +223,11 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Update the existing draft MAWB using its UUID
+	// Convert input to DraftMAWB and update the existing draft MAWB using its UUID
+	data := inputData.ToDraftMAWB()
 	data.MAWBInfoUUID = mawbUUID
-	result, err := h.draftMAWBSvc.UpdateDraftMAWBByUUID(r.Context(), existing.UUID, data)
+	data.UUID = existing.UUID // Set the existing UUID for update
+	result, err := h.draftMAWBSvc.UpdateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -273,7 +290,7 @@ func (h *mawbInfoHandler) getDraftMAWBByUUID(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	draft, err := h.draftMAWBSvc.GetDraftMAWBByUUID(r.Context(), draftUUID)
+	draft, err := h.draftMAWBSvc.GetDraftMAWBWithRelations(r.Context(), draftUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return

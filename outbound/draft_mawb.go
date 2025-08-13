@@ -80,36 +80,36 @@ type DraftMAWBWithRelations struct {
 
 type DraftMAWBItem struct {
 	tableName         struct{}           `pg:"public.draft_mawb_items"`
-	ID                int                `json:"id" db:"id"`
-	DraftMAWBUUID     string             `json:"draft_mawb_uuid" db:"draft_mawb_uuid"`
-	PiecesRCP         string             `json:"pieces_rcp" db:"pieces_rcp"`
-	GrossWeight       string             `json:"gross_weight" db:"gross_weight"`
-	KgLb              string             `json:"kg_lb" db:"kg_lb"`
-	RateClass         string             `json:"rate_class" db:"rate_class"`
-	TotalVolume       string             `json:"total_volume" db:"total_volume"`
-	ChargeableWeight  string             `json:"chargeable_weight" db:"chargeable_weight"`
-	RateCharge        float64            `json:"rate_charge" db:"rate_charge"`
-	Total             float64            `json:"total" db:"total"`
-	NatureAndQuantity string             `json:"nature_and_quantity" db:"nature_and_quantity"`
+	ID                int                `json:"id" pg:"id"`
+	DraftMAWBUUID     string             `json:"draft_mawb_uuid" pg:"draft_mawb_uuid"`
+	PiecesRCP         string             `json:"pieces_rcp" pg:"pieces_rcp"`
+	GrossWeight       string             `json:"gross_weight" pg:"gross_weight"`
+	KgLb              string             `json:"kg_lb" pg:"kg_lb"`
+	RateClass         string             `json:"rate_class" pg:"rate_class"`
+	TotalVolume       float64            `json:"total_volume" pg:"total_volume"`
+	ChargeableWeight  float64            `json:"chargeable_weight" pg:"chargeable_weight"`
+	RateCharge        float64            `json:"rate_charge" pg:"rate_charge"`
+	Total             float64            `json:"total" pg:"total"`
+	NatureAndQuantity string             `json:"nature_and_quantity" pg:"nature_and_quantity"`
 	Dims              []DraftMAWBItemDim `json:"dims,omitempty"`
 }
 
 type DraftMAWBItemDim struct {
-	tableName       struct{} `pg:"public.draft_mawb_dims"`
-	ID              int      `json:"id" db:"id"`
-	DraftMAWBItemID int      `json:"draft_mawb_item_id" db:"draft_mawb_item_id"`
-	Length          string   `json:"length" db:"length"`
-	Width           string   `json:"width" db:"width"`
-	Height          string   `json:"height" db:"height"`
-	Count           string   `json:"count" db:"count"`
+	tableName       struct{} `pg:"public.draft_mawb_item_dims"`
+	ID              int      `json:"id" pg:"id"`
+	DraftMAWBItemID int      `json:"draft_mawb_item_id" pg:"draft_mawb_item_id"`
+	Length          string   `json:"length" pg:"length"`
+	Width           string   `json:"width" pg:"width"`
+	Height          string   `json:"height" pg:"height"`
+	Count           string   `json:"count" pg:"count"`
 }
 
 type DraftMAWBCharge struct {
 	tableName     struct{} `pg:"public.draft_mawb_charges"`
-	ID            int      `json:"id" db:"id"`
-	DraftMAWBUUID string   `json:"draft_mawb_uuid" db:"draft_mawb_uuid"`
-	Key           string   `json:"key" db:"charge_key"`
-	Value         float64  `json:"value" db:"charge_value"`
+	ID            int      `json:"id" pg:"id"`
+	DraftMAWBUUID string   `json:"draft_mawb_uuid" pg:"draft_mawb_uuid"`
+	Key           string   `json:"key" pg:"charge_key"`
+	Value         float64  `json:"value" pg:"charge_value"`
 }
 
 // DraftMAWBListItem represents a draft MAWB item in the list view
@@ -128,19 +128,69 @@ type DraftMAWBListItem struct {
 
 // DraftMAWBInput is used for API input that includes items and charges
 type DraftMAWBInput struct {
-	DraftMAWB
-	Items   []DraftMAWBItemInput   `json:"items,omitempty"`
-	Charges []DraftMAWBChargeInput `json:"charges,omitempty"`
+	UUID                        string                 `json:"uuid,omitempty"`
+	MAWBInfoUUID                string                 `json:"mawb_info_uuid,omitempty"`
+	CustomerUUID                string                 `json:"customerUUID"`
+	AirlineLogo                 string                 `json:"airlineLogo"`
+	AirlineName                 string                 `json:"airlineName"`
+	MAWB                        string                 `json:"mawb"`
+	HAWB                        string                 `json:"hawb"`
+	ShipperNameAndAddress       string                 `json:"shipperNameAndAddress"`
+	AWBIssuedBy                 string                 `json:"awbIssuedBy"`
+	ConsigneeNameAndAddress     string                 `json:"consigneeNameAndAddress"`
+	IssuingCarrierAgentName     string                 `json:"issuingCarrierAgentName"`
+	AccountingInfomation        string                 `json:"accountingInfomation"`
+	AgentsIATACode              string                 `json:"agentsIATACode"`
+	AccountNo                   string                 `json:"accountNo"`
+	AirportOfDeparture          string                 `json:"airportOfDeparture"`
+	ReferenceNumber             string                 `json:"referenceNumber"`
+	OptionalShippingInfo1       string                 `json:"optionalShippingInfo1"`
+	OptionalShippingInfo2       string                 `json:"optionalShippingInfo2"`
+	RoutingTo                   string                 `json:"routingTo"`
+	RoutingBy                   string                 `json:"routingBy"`
+	DestinationTo1              string                 `json:"destinationTo1"`
+	DestinationBy1              string                 `json:"destinationBy1"`
+	DestinationTo2              string                 `json:"destinationTo2"`
+	DestinationBy2              string                 `json:"destinationBy2"`
+	Currency                    string                 `json:"currency"`
+	ChgsCode                    string                 `json:"chgsCode"`
+	WtValPpd                    string                 `json:"wtValPpd"`
+	WtValColl                   string                 `json:"wtValColl"`
+	OtherPpd                    string                 `json:"otherPpd"`
+	OtherColl                   string                 `json:"otherColl"`
+	DeclaredValCarriage         string                 `json:"declaredValCarriage"`
+	DeclaredValCustoms          string                 `json:"declaredValCustoms"`
+	AirportOfDestination        string                 `json:"airportOfDestination"`
+	RequestedFlightDate1        string                 `json:"requestedFlightDate1"`
+	RequestedFlightDate2        string                 `json:"requestedFlightDate2"`
+	AmountOfInsurance           string                 `json:"amountOfInsurance"`
+	HandlingInfomation          string                 `json:"handlingInfomation"`
+	SCI                         string                 `json:"sci"`
+	Prepaid                     float64                `json:"prepaid"`
+	ValuationCharge             float64                `json:"valuationCharge"`
+	Tax                         float64                `json:"tax"`
+	TotalOtherChargesDueAgent   float64                `json:"totalOtherChargesDueAgent"`
+	TotalOtherChargesDueCarrier float64                `json:"totalOtherChargesDueCarrier"`
+	TotalPrepaid                float64                `json:"totalPrepaid"`
+	CurrencyConversionRates     string                 `json:"currencyConversionRates"`
+	Signature1                  string                 `json:"signature1"`
+	Signature2Date              string                 `json:"signature2Date"`
+	Signature2Place             string                 `json:"signature2Place"`
+	Signature2Issuing           string                 `json:"signature2Issuing"`
+	ShippingMark                string                 `json:"shippingMark"`
+	AirlineUUID                 string                 `json:"airlineUUID"`
+	Items                       []DraftMAWBItemInput   `json:"items,omitempty"`
+	Charges                     []DraftMAWBChargeInput `json:"charges,omitempty"`
 }
 
 type DraftMAWBItemInput struct {
 	ID                int                     `json:"id,omitempty"`
 	PiecesRCP         string                  `json:"piecesRCP"`
-	GrossWeight       string                  `json:"grossWeight"`
+	GrossWeight       float64                 `json:"grossWeight"`
 	KgLb              string                  `json:"kgLb"`
 	RateClass         string                  `json:"rateClass"`
-	TotalVolume       string                  `json:"totalVolume"`
-	ChargeableWeight  string                  `json:"chargeableWeight"`
+	TotalVolume       float64                 `json:"totalVolume"`
+	ChargeableWeight  float64                 `json:"chargeableWeight"`
 	RateCharge        float64                 `json:"rateCharge"`
 	Total             float64                 `json:"total"`
 	NatureAndQuantity string                  `json:"natureAndQuantity"`
@@ -148,11 +198,11 @@ type DraftMAWBItemInput struct {
 }
 
 type DraftMAWBItemDimInput struct {
-	ID     int    `json:"id,omitempty"`
-	Length string `json:"length"`
-	Width  string `json:"width"`
-	Height string `json:"height"`
-	Count  string `json:"count"`
+	ID     int `json:"id,omitempty"`
+	Length int `json:"length"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+	Count  int `json:"count"`
 }
 
 type DraftMAWBChargeInput struct {
@@ -162,10 +212,64 @@ type DraftMAWBChargeInput struct {
 }
 
 func (d *DraftMAWBInput) Bind(r *http.Request) error {
-	now := time.Now()
-	if d.CreatedAt.IsZero() {
-		d.CreatedAt = now
-	}
-	d.UpdatedAt = now
 	return nil
+}
+
+// ToDraftMAWB converts DraftMAWBInput to DraftMAWB
+func (d *DraftMAWBInput) ToDraftMAWB() *DraftMAWB {
+	now := time.Now()
+	return &DraftMAWB{
+		UUID:                        d.UUID,
+		MAWBInfoUUID:                d.MAWBInfoUUID,
+		CustomerUUID:                d.CustomerUUID,
+		AirlineLogo:                 d.AirlineLogo,
+		AirlineName:                 d.AirlineName,
+		MAWB:                        d.MAWB,
+		HAWB:                        d.HAWB,
+		ShipperNameAndAddress:       d.ShipperNameAndAddress,
+		AWBIssuedBy:                 d.AWBIssuedBy,
+		ConsigneeNameAndAddress:     d.ConsigneeNameAndAddress,
+		IssuingCarrierAgentName:     d.IssuingCarrierAgentName,
+		AccountingInfomation:        d.AccountingInfomation,
+		AgentsIATACode:              d.AgentsIATACode,
+		AccountNo:                   d.AccountNo,
+		AirportOfDeparture:          d.AirportOfDeparture,
+		ReferenceNumber:             d.ReferenceNumber,
+		OptionalShippingInfo1:       d.OptionalShippingInfo1,
+		OptionalShippingInfo2:       d.OptionalShippingInfo2,
+		RoutingTo:                   d.RoutingTo,
+		RoutingBy:                   d.RoutingBy,
+		DestinationTo1:              d.DestinationTo1,
+		DestinationBy1:              d.DestinationBy1,
+		DestinationTo2:              d.DestinationTo2,
+		DestinationBy2:              d.DestinationBy2,
+		Currency:                    d.Currency,
+		ChgsCode:                    d.ChgsCode,
+		WtValPpd:                    d.WtValPpd,
+		WtValColl:                   d.WtValColl,
+		OtherPpd:                    d.OtherPpd,
+		OtherColl:                   d.OtherColl,
+		DeclaredValCarriage:         d.DeclaredValCarriage,
+		DeclaredValCustoms:          d.DeclaredValCustoms,
+		AirportOfDestination:        d.AirportOfDestination,
+		RequestedFlightDate1:        d.RequestedFlightDate1,
+		RequestedFlightDate2:        d.RequestedFlightDate2,
+		AmountOfInsurance:           d.AmountOfInsurance,
+		HandlingInfomation:          d.HandlingInfomation,
+		SCI:                         d.SCI,
+		Prepaid:                     d.Prepaid,
+		ValuationCharge:             d.ValuationCharge,
+		Tax:                         d.Tax,
+		TotalOtherChargesDueAgent:   d.TotalOtherChargesDueAgent,
+		TotalOtherChargesDueCarrier: d.TotalOtherChargesDueCarrier,
+		TotalPrepaid:                d.TotalPrepaid,
+		CurrencyConversionRates:     d.CurrencyConversionRates,
+		Signature1:                  d.Signature1,
+		Signature2Date:              d.Signature2Date,
+		Signature2Place:             d.Signature2Place,
+		Signature2Issuing:           d.Signature2Issuing,
+		ShippingMark:                d.ShippingMark,
+		CreatedAt:                   now,
+		UpdatedAt:                   now,
+	}
 }

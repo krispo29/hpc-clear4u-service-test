@@ -7,12 +7,13 @@ import (
 type DraftMAWBService interface {
 	GetDraftMAWBByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
 	GetDraftMAWBByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
-	CreateOrUpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
-	UpdateDraftMAWBByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error)
+	CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
+	UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error
 	GetAllDraftMAWB(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CancelDraftMAWB(ctx context.Context, mawbUUID string) error
 	UndoCancelDraftMAWB(ctx context.Context, mawbUUID string) error
+	GetDraftMAWBWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error)
 }
 
 type draftMAWBService struct {
@@ -31,12 +32,12 @@ func (s *draftMAWBService) GetDraftMAWBByUUID(ctx context.Context, uuid string) 
 	return s.repo.GetByUUID(ctx, uuid)
 }
 
-func (s *draftMAWBService) CreateOrUpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
-	return s.repo.CreateOrUpdate(ctx, draftMAWB)
+func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	return s.repo.CreateWithRelations(ctx, draftMAWB, items, charges)
 }
 
-func (s *draftMAWBService) UpdateDraftMAWBByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
-	return s.repo.UpdateByUUID(ctx, uuid, draftMAWB)
+func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error {
 	draft, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
@@ -61,4 +62,6 @@ func (s *draftMAWBService) UndoCancelDraftMAWB(ctx context.Context, mawbUUID str
 	return s.repo.UndoCancelByMAWBUUID(ctx, mawbUUID)
 }
 
-// Calculation methods removed for now - will be implemented when Items and Charges are added back
+func (s *draftMAWBService) GetDraftMAWBWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error) {
+	return s.repo.GetWithRelations(ctx, uuid)
+}
