@@ -8,6 +8,7 @@ type DraftMAWBService interface {
 	GetDraftMAWBByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
 	GetDraftMAWBByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
 	CreateOrUpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
+	UpdateDraftMAWBByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error
 	GetAllDraftMAWB(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CancelDraftMAWB(ctx context.Context, mawbUUID string) error
@@ -32,6 +33,10 @@ func (s *draftMAWBService) GetDraftMAWBByUUID(ctx context.Context, uuid string) 
 
 func (s *draftMAWBService) CreateOrUpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
 	return s.repo.CreateOrUpdate(ctx, draftMAWB)
+}
+
+func (s *draftMAWBService) UpdateDraftMAWBByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
+	return s.repo.UpdateByUUID(ctx, uuid, draftMAWB)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error {
 	draft, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)

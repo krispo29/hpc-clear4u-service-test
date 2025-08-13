@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// DraftMAWBRepository defines the interface for draft MAWB database operations.
 type DraftMAWBRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
 	GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
 	CreateOrUpdate(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
+	UpdateByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	UpdateStatus(ctx context.Context, uuid, status string) error
 	GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CancelByMAWBUUID(ctx context.Context, mawbUUID string) error
@@ -22,7 +22,6 @@ type DraftMAWBRepository interface {
 
 type draftMAWBRepository struct{}
 
-// NewDraftMAWBRepository creates a new draft MAWB repository.
 func NewDraftMAWBRepository() DraftMAWBRepository {
 	return &draftMAWBRepository{}
 }
@@ -118,6 +117,33 @@ func (r *draftMAWBRepository) CreateOrUpdate(ctx context.Context, draftMAWB *Dra
 	}
 
 	return r.GetByMAWBUUID(ctx, draftMAWB.MAWBInfoUUID)
+}
+
+// UpdateByUUID updates an existing draft MAWB by its UUID
+func (r *draftMAWBRepository) UpdateByUUID(ctx context.Context, uuid string, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Get existing record to preserve certain fields
+	existing, err := r.GetByUUID(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, pg.ErrNoRows
+	}
+
+	// Set the UUID and preserve created_at
+	draftMAWB.UUID = uuid
+	draftMAWB.CreatedAt = existing.CreatedAt
+	draftMAWB.UpdatedAt = time.Now()
+
+	// Update the record
+	_, err = db.Model(draftMAWB).WherePK().Update()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetByUUID(ctx, uuid)
 }
 
 // UpdateStatus updates the status of a draft MAWB.

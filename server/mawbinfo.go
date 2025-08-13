@@ -181,7 +181,7 @@ func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http
 		return
 	}
 
-	render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB created/updated successfully"))
+	render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB created successfully"))
 }
 
 func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request) {
@@ -196,9 +196,21 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
-	data.MAWBInfoUUID = mawbUUID
 
-	result, err := h.draftMAWBSvc.CreateOrUpdateDraftMAWB(r.Context(), data)
+	// For PATCH operation, we need to find the existing draft MAWB by mawb_info_uuid first
+	existing, err := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if existing == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Draft MAWB not found for this MAWB"})
+		return
+	}
+
+	// Update the existing draft MAWB using its UUID
+	data.MAWBInfoUUID = mawbUUID
+	result, err := h.draftMAWBSvc.UpdateDraftMAWBByUUID(r.Context(), existing.UUID, data)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
