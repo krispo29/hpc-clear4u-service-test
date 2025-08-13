@@ -115,6 +115,7 @@ type DraftMAWBCharge struct {
 // DraftMAWBListItem represents a draft MAWB item in the list view
 type DraftMAWBListItem struct {
 	UUID                    string `json:"uuid"`
+	MAWBInfoUUID            string `json:"mawb_info_uuid"`
 	MAWB                    string `json:"mawb"`
 	HAWB                    string `json:"hawb"`
 	Airline                 string `json:"airline"`

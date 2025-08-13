@@ -153,6 +153,7 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 	baseQuery := `
 		SELECT 
 			dm.uuid::text,
+			dm.mawb_info_uuid::text,
 			COALESCE(dm.mawb, '') as mawb,
 			COALESCE(dm.hawb, '') as hawb,
 			COALESCE(dm.airline_name, '') as airline,
