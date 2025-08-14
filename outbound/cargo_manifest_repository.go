@@ -12,7 +12,8 @@ import (
 
 type CargoManifestRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
-	CreateOrUpdate(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 }
 
 type cargoManifestRepository struct{}
@@ -45,12 +46,12 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	return manifest, nil
 }
 
-func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
 	rootDB := ctx.Value("postgreSQLConn").(orm.DB)
 
 	// ถ้ามี Tx อยู่แล้วให้ใช้ต่อ
 	if tx, ok := rootDB.(*pg.Tx); ok {
-		return r.createOrUpdateInTx(ctx, tx, manifest)
+		return r.createInTx(ctx, tx, manifest)
 	}
 
 	// ถ้าเป็น *pg.DB ให้เริ่ม Tx ใหม่
@@ -62,7 +63,7 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 		defer tx.Close() // จะ rollback อัตโนมัติถ้ายังไม่ commit
 
 		txCtx := context.WithValue(ctx, "postgreSQLConn", tx)
-		out, err := r.createOrUpdateInTx(txCtx, tx, manifest)
+		out, err := r.createInTx(txCtx, tx, manifest)
 		if err != nil {
 			return nil, err
 		}
@@ -75,39 +76,79 @@ func (r *cargoManifestRepository) CreateOrUpdate(ctx context.Context, manifest *
 	return nil, fmt.Errorf("invalid DB type in context")
 }
 
-// ฟังก์ชันทำงานหลักภายใน Tx (รองรับทั้ง *pg.Tx และ *pg.DB ผ่าน orm.DB)
-func (r *cargoManifestRepository) createOrUpdateInTx(ctx context.Context, db orm.DB, manifest *CargoManifest) (*CargoManifest, error) {
-	existing, err := r.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
-	if err != nil {
+func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+	rootDB := ctx.Value("postgreSQLConn").(orm.DB)
+
+	// ถ้ามี Tx อยู่แล้วให้ใช้ต่อ
+	if tx, ok := rootDB.(*pg.Tx); ok {
+		return r.updateInTx(ctx, tx, manifest)
+	}
+
+	// ถ้าเป็น *pg.DB ให้เริ่ม Tx ใหม่
+	if pgdb, ok := rootDB.(*pg.DB); ok {
+		tx, err := pgdb.Begin()
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Close() // จะ rollback อัตโนมัติถ้ายังไม่ commit
+
+		txCtx := context.WithValue(ctx, "postgreSQLConn", tx)
+		out, err := r.updateInTx(txCtx, tx, manifest)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+
+	return nil, fmt.Errorf("invalid DB type in context")
+}
+
+// ฟังก์ชันสร้าง manifest ใหม่ภายใน Tx
+func (r *cargoManifestRepository) createInTx(ctx context.Context, db orm.DB, manifest *CargoManifest) (*CargoManifest, error) {
+	now := time.Now()
+
+	// สร้าง manifest ใหม่
+	manifest.UUID = uuid.New().String()
+	manifest.CreatedAt = now
+	manifest.UpdatedAt = now
+
+	if _, err := db.Model(manifest).Insert(); err != nil {
 		return nil, err
 	}
 
+	// ใส่ items ใหม่
+	for i := range manifest.Items {
+		manifest.Items[i].CargoManifestUUID = manifest.UUID
+	}
+	if len(manifest.Items) > 0 {
+		if _, err := db.Model(&manifest.Items).Insert(); err != nil {
+			return nil, err
+		}
+	}
+
+	// return ตัวเต็มล่าสุด
+	return r.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
+}
+
+// ฟังก์ชันอัปเดต manifest ภายใน Tx
+func (r *cargoManifestRepository) updateInTx(ctx context.Context, db orm.DB, manifest *CargoManifest) (*CargoManifest, error) {
 	now := time.Now()
 
-	if existing != nil {
-		// อัปเดต manifest เดิม
-		manifest.UUID = existing.UUID
-		manifest.UpdatedAt = now
+	// อัปเดต manifest เดิม
+	manifest.UpdatedAt = now
 
-		if _, err := db.Model(manifest).WherePK().Update(); err != nil {
-			return nil, err
-		}
+	if _, err := db.Model(manifest).WherePK().Update(); err != nil {
+		return nil, err
+	}
 
-		// ลบ items เดิมเพื่อแทนที่
-		if _, err := db.Model(&CargoManifestItem{}).
-			Where("cargo_manifest_uuid = ?", manifest.UUID).
-			Delete(); err != nil {
-			return nil, err
-		}
-	} else {
-		// สร้าง manifest ใหม่
-		manifest.UUID = uuid.New().String()
-		manifest.CreatedAt = now
-		manifest.UpdatedAt = now
-
-		if _, err := db.Model(manifest).Insert(); err != nil {
-			return nil, err
-		}
+	// ลบ items เดิมเพื่อแทนที่
+	if _, err := db.Model(&CargoManifestItem{}).
+		Where("cargo_manifest_uuid = ?", manifest.UUID).
+		Delete(); err != nil {
+		return nil, err
 	}
 
 	// ใส่ items ใหม่

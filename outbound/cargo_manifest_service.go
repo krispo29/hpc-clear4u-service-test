@@ -2,11 +2,13 @@ package outbound
 
 import (
 	"context"
+	"fmt"
 )
 
 type CargoManifestService interface {
 	GetCargoManifestByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
-	CreateOrUpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifestStatus(ctx context.Context, mawbUUID, status string) error
 }
 
@@ -23,25 +25,52 @@ func (s *cargoManifestService) GetCargoManifestByMAWBUUID(ctx context.Context, m
 	return s.repo.GetByMAWBUUID(ctx, mawbUUID)
 }
 
-func (s *cargoManifestService) CreateOrUpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
 	// Add validation or transformation logic here.
 	// For example, ensuring MAWBInfoUUID is present and valid.
-	return s.repo.CreateOrUpdate(ctx, manifest)
+
+	// Check if cargo manifest already exists for this MAWB
+	existing, err := s.repo.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, fmt.Errorf("cargo manifest already exists for this MAWB")
+	}
+
+	return s.repo.Create(ctx, manifest)
+}
+
+func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+	// Add validation or transformation logic here.
+	// For example, ensuring MAWBInfoUUID is present and valid.
+
+	// Check if cargo manifest exists for this MAWB
+	existing, err := s.repo.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("cargo manifest not found for this MAWB")
+	}
+
+	// Set the UUID from existing record for update
+	manifest.UUID = existing.UUID
+	return s.repo.Update(ctx, manifest)
 }
 
 func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, status string) error {
-	// This would typically involve getting the manifest, changing status, and saving.
-	// For now, let's assume the repository will have a dedicated method for this.
-	// As this method is not in the repo, I will add it later if needed.
-	// For now, I will assume the POST /confirm and /reject endpoints will call CreateOrUpdate with a specific status.
+	// Get the existing manifest
 	manifest, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
 		return err
 	}
 	if manifest == nil {
-		return nil // Or an error indicating not found
+		return fmt.Errorf("cargo manifest not found for this MAWB")
 	}
+
+	// Update the status
 	manifest.Status = status
-	_, err = s.repo.CreateOrUpdate(ctx, manifest)
+	_, err = s.repo.Update(ctx, manifest)
 	return err
 }

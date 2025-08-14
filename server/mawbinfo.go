@@ -38,7 +38,8 @@ func (h *mawbInfoHandler) router() chi.Router {
 
 		// Cargo Manifest Routes
 		r.Get("/cargo-manifest", h.getCargoManifest)
-		r.Post("/cargo-manifest", h.createOrUpdateCargoManifest)
+		r.Post("/cargo-manifest", h.createCargoManifest)
+		r.Put("/cargo-manifest", h.updateCargoManifest)
 		r.Post("/cargo-manifest/confirm", h.confirmCargoManifest)
 		r.Post("/cargo-manifest/reject", h.rejectCargoManifest)
 		r.Get("/cargo-manifest/print", h.printCargoManifest)
@@ -81,7 +82,7 @@ func (h *mawbInfoHandler) getCargoManifest(w http.ResponseWriter, r *http.Reques
 	render.Respond(w, r, SuccessResponse(manifest, "Success"))
 }
 
-func (h *mawbInfoHandler) createOrUpdateCargoManifest(w http.ResponseWriter, r *http.Request) {
+func (h *mawbInfoHandler) createCargoManifest(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
@@ -95,13 +96,36 @@ func (h *mawbInfoHandler) createOrUpdateCargoManifest(w http.ResponseWriter, r *
 	}
 	data.MAWBInfoUUID = mawbUUID
 
-	result, err := h.cargoManifestSvc.CreateOrUpdateCargoManifest(r.Context(), data)
+	result, err := h.cargoManifestSvc.CreateCargoManifest(r.Context(), data)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
 
-	render.Respond(w, r, SuccessResponse(result, "Cargo Manifest created/updated successfully"))
+	render.Respond(w, r, SuccessResponse(result, "Cargo Manifest created successfully"))
+}
+
+func (h *mawbInfoHandler) updateCargoManifest(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	data := &outbound.CargoManifest{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	data.MAWBInfoUUID = mawbUUID
+
+	result, err := h.cargoManifestSvc.UpdateCargoManifest(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Cargo Manifest updated successfully"))
 }
 
 func (h *mawbInfoHandler) confirmCargoManifest(w http.ResponseWriter, r *http.Request) {
