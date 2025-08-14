@@ -60,6 +60,7 @@ type DraftMAWB struct {
 	Status                      string    `json:"status" db:"status"`
 	CreatedAt                   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt                   time.Time `json:"updated_at" db:"updated_at"`
+	AirlineUUID                 string    `json:"airline_uuid" db:"airline_uuid"`
 }
 
 func (d *DraftMAWB) Bind(r *http.Request) error {
@@ -76,6 +77,136 @@ type DraftMAWBWithRelations struct {
 	*DraftMAWB
 	Items   []DraftMAWBItem   `json:"items,omitempty"`
 	Charges []DraftMAWBCharge `json:"charges,omitempty"`
+}
+
+// DraftMAWBResponse is used for API responses without airline_logo and airline_name
+type DraftMAWBResponse struct {
+	UUID                        string    `json:"uuid"`
+	MAWBInfoUUID                string    `json:"mawb_info_uuid"`
+	CustomerUUID                string    `json:"customerUUID"`
+	MAWB                        string    `json:"mawb"`
+	HAWB                        string    `json:"hawb"`
+	ShipperNameAndAddress       string    `json:"shipper_name_and_address"`
+	AWBIssuedBy                 string    `json:"awb_issued_by"`
+	ConsigneeNameAndAddress     string    `json:"consignee_name_and_address"`
+	IssuingCarrierAgentName     string    `json:"issuing_carrier_agent_name"`
+	AccountingInfomation        string    `json:"accounting_infomation"`
+	AgentsIATACode              string    `json:"agents_iata_code"`
+	AccountNo                   string    `json:"account_no"`
+	AirportOfDeparture          string    `json:"airport_of_departure"`
+	ReferenceNumber             string    `json:"reference_number"`
+	OptionalShippingInfo1       string    `json:"optional_shipping_info1"`
+	OptionalShippingInfo2       string    `json:"optional_shipping_info2"`
+	RoutingTo                   string    `json:"routing_to"`
+	RoutingBy                   string    `json:"routing_by"`
+	DestinationTo1              string    `json:"destination_to1"`
+	DestinationBy1              string    `json:"destination_by1"`
+	DestinationTo2              string    `json:"destination_to2"`
+	DestinationBy2              string    `json:"destination_by2"`
+	Currency                    string    `json:"currency"`
+	ChgsCode                    string    `json:"chgs_code"`
+	WtValPpd                    string    `json:"wt_val_ppd"`
+	WtValColl                   string    `json:"wt_val_coll"`
+	OtherPpd                    string    `json:"other_ppd"`
+	OtherColl                   string    `json:"other_coll"`
+	DeclaredValCarriage         string    `json:"declared_val_carriage"`
+	DeclaredValCustoms          string    `json:"declared_val_customs"`
+	AirportOfDestination        string    `json:"airport_of_destination"`
+	RequestedFlightDate1        string    `json:"requested_flight_date1"`
+	RequestedFlightDate2        string    `json:"requested_flight_date2"`
+	AmountOfInsurance           string    `json:"amount_of_insurance"`
+	HandlingInfomation          string    `json:"handling_infomation"`
+	SCI                         string    `json:"sci"`
+	Prepaid                     float64   `json:"prepaid"`
+	ValuationCharge             float64   `json:"valuation_charge"`
+	Tax                         float64   `json:"tax"`
+	TotalOtherChargesDueAgent   float64   `json:"total_other_charges_due_agent"`
+	TotalOtherChargesDueCarrier float64   `json:"total_other_charges_due_carrier"`
+	TotalPrepaid                float64   `json:"total_prepaid"`
+	CurrencyConversionRates     string    `json:"currency_conversion_rates"`
+	Signature1                  string    `json:"signature1"`
+	Signature2Date              string    `json:"signature2_date"`
+	Signature2Place             string    `json:"signature2_place"`
+	Signature2Issuing           string    `json:"signature2_issuing"`
+	ShippingMark                string    `json:"shipping_mark"`
+	Status                      string    `json:"status"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
+	AirlineUUID                 string    `json:"airline_uuid"`
+}
+
+// DraftMAWBWithRelationsResponse includes the related items and charges without airline info
+type DraftMAWBWithRelationsResponse struct {
+	*DraftMAWBResponse
+	Items   []DraftMAWBItem   `json:"items,omitempty"`
+	Charges []DraftMAWBCharge `json:"charges,omitempty"`
+}
+
+// ToDraftMAWBResponse converts DraftMAWB to DraftMAWBResponse
+func (d *DraftMAWB) ToDraftMAWBResponse() *DraftMAWBResponse {
+	return &DraftMAWBResponse{
+		UUID:                        d.UUID,
+		MAWBInfoUUID:                d.MAWBInfoUUID,
+		CustomerUUID:                d.CustomerUUID,
+		MAWB:                        d.MAWB,
+		HAWB:                        d.HAWB,
+		ShipperNameAndAddress:       d.ShipperNameAndAddress,
+		AWBIssuedBy:                 d.AWBIssuedBy,
+		ConsigneeNameAndAddress:     d.ConsigneeNameAndAddress,
+		IssuingCarrierAgentName:     d.IssuingCarrierAgentName,
+		AccountingInfomation:        d.AccountingInfomation,
+		AgentsIATACode:              d.AgentsIATACode,
+		AccountNo:                   d.AccountNo,
+		AirportOfDeparture:          d.AirportOfDeparture,
+		ReferenceNumber:             d.ReferenceNumber,
+		OptionalShippingInfo1:       d.OptionalShippingInfo1,
+		OptionalShippingInfo2:       d.OptionalShippingInfo2,
+		RoutingTo:                   d.RoutingTo,
+		RoutingBy:                   d.RoutingBy,
+		DestinationTo1:              d.DestinationTo1,
+		DestinationBy1:              d.DestinationBy1,
+		DestinationTo2:              d.DestinationTo2,
+		DestinationBy2:              d.DestinationBy2,
+		Currency:                    d.Currency,
+		ChgsCode:                    d.ChgsCode,
+		WtValPpd:                    d.WtValPpd,
+		WtValColl:                   d.WtValColl,
+		OtherPpd:                    d.OtherPpd,
+		OtherColl:                   d.OtherColl,
+		DeclaredValCarriage:         d.DeclaredValCarriage,
+		DeclaredValCustoms:          d.DeclaredValCustoms,
+		AirportOfDestination:        d.AirportOfDestination,
+		RequestedFlightDate1:        d.RequestedFlightDate1,
+		RequestedFlightDate2:        d.RequestedFlightDate2,
+		AmountOfInsurance:           d.AmountOfInsurance,
+		HandlingInfomation:          d.HandlingInfomation,
+		SCI:                         d.SCI,
+		Prepaid:                     d.Prepaid,
+		ValuationCharge:             d.ValuationCharge,
+		Tax:                         d.Tax,
+		TotalOtherChargesDueAgent:   d.TotalOtherChargesDueAgent,
+		TotalOtherChargesDueCarrier: d.TotalOtherChargesDueCarrier,
+		TotalPrepaid:                d.TotalPrepaid,
+		CurrencyConversionRates:     d.CurrencyConversionRates,
+		Signature1:                  d.Signature1,
+		Signature2Date:              d.Signature2Date,
+		Signature2Place:             d.Signature2Place,
+		Signature2Issuing:           d.Signature2Issuing,
+		ShippingMark:                d.ShippingMark,
+		Status:                      d.Status,
+		CreatedAt:                   d.CreatedAt,
+		UpdatedAt:                   d.UpdatedAt,
+		AirlineUUID:                 d.AirlineUUID,
+	}
+}
+
+// ToDraftMAWBWithRelationsResponse converts DraftMAWBWithRelations to DraftMAWBWithRelationsResponse
+func (d *DraftMAWBWithRelations) ToDraftMAWBWithRelationsResponse() *DraftMAWBWithRelationsResponse {
+	return &DraftMAWBWithRelationsResponse{
+		DraftMAWBResponse: d.DraftMAWB.ToDraftMAWBResponse(),
+		Items:             d.Items,
+		Charges:           d.Charges,
+	}
 }
 
 type DraftMAWBItem struct {
@@ -270,6 +401,7 @@ func (d *DraftMAWBInput) ToDraftMAWB() *DraftMAWB {
 		Signature2Place:             d.Signature2Place,
 		Signature2Issuing:           d.Signature2Issuing,
 		ShippingMark:                d.ShippingMark,
+		AirlineUUID:                 d.AirlineUUID,
 		CreatedAt:                   now,
 		UpdatedAt:                   now,
 	}

@@ -300,7 +300,9 @@ func (h *mawbInfoHandler) getDraftMAWBByUUID(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	render.Respond(w, r, SuccessResponse(draft, "Success"))
+	// Convert to response without airline_logo and airline_name
+	response := draft.ToDraftMAWBWithRelationsResponse()
+	render.Respond(w, r, SuccessResponse(response, "Success"))
 }
 
 func (h *mawbInfoHandler) cancelMAWB(w http.ResponseWriter, r *http.Request) {
