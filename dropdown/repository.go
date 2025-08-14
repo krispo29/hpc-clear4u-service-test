@@ -11,7 +11,7 @@ type Repository interface {
 }
 
 type AirlineLogoModel struct {
-	ID       string `pg:"id" json:"id"`
+	UUID     string `pg:"uuid" json:"uuid"`
 	Code     string `pg:"code" json:"code"`
 	Name     string `pg:"name" json:"name"`
 	LogoURL  string `pg:"logo_url" json:"logo_url"`
@@ -39,7 +39,7 @@ func (r *repository) GetAirlineLogos(ctx context.Context) ([]AirlineLogoModel, e
 
 	var airlines []AirlineLogoModel
 	_, err := db.QueryContext(ctx, &airlines, `
-		SELECT id, code, name, logo_url, is_active 
+		SELECT uuid, code, name, logo_url, is_active 
 		FROM airline_logos 
 		WHERE is_active = true 
 		ORDER BY name

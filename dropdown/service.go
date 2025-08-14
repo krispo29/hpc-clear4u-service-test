@@ -17,7 +17,7 @@ type DropdownItem struct {
 }
 
 type AirlineLogoItem struct {
-	Key   string `json:"key"`
+	Value string `json:"value"`
 	Image string `json:"image"`
 	Text  string `json:"text"`
 }
@@ -74,7 +74,7 @@ func (s *service) GetAirlineLogos(ctx context.Context) ([]AirlineLogoItem, error
 	airlineLogos := make([]AirlineLogoItem, len(airlines))
 	for i, airline := range airlines {
 		airlineLogos[i] = AirlineLogoItem{
-			Key:   airline.ID,
+			Value: airline.UUID,
 			Image: airline.LogoURL,
 			Text:  airline.Name,
 		}
