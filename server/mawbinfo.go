@@ -1,14 +1,19 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"hpc-express-service/outbound"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator"
+	"github.com/jung-kurt/gofpdf"
 
 	"hpc-express-service/outbound/mawbinfo"
 )
@@ -51,6 +56,7 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Post("/draft-mawb/confirm", h.confirmDraftMAWB)
 		r.Post("/draft-mawb/reject", h.rejectDraftMAWB)
 		r.Get("/draft-mawb/print", h.printDraftMAWB)
+		r.Post("/draft-mawb/preview", h.previewDraftMAWB)
 
 		// MAWB management routes
 		r.Get("/cancel", h.cancelMAWB)
@@ -549,4 +555,376 @@ func (h *mawbInfoHandler) deleteMawbInfoAttachment(w http.ResponseWriter, r *htt
 
 	// Return success response
 	render.Respond(w, r, SuccessResponse(nil, "attachment deleted successfully"))
+}
+
+func (h *mawbInfoHandler) previewDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	inputData := &outbound.DraftMAWBInput{}
+	if err := render.Bind(r, inputData); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Generate PDF preview
+	pdfBuffer, err := h.generateDraftMAWBPDF(inputData, true)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Set headers for PDF response
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=draft_mawb_preview.pdf")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+
+	// Write PDF to response
+	w.Write(pdfBuffer.Bytes())
+}
+
+// Helper functions to convert input types to response types
+func convertItemInputsToItems(inputs []outbound.DraftMAWBItemInput) []outbound.DraftMAWBItem {
+	items := make([]outbound.DraftMAWBItem, len(inputs))
+	for i, input := range inputs {
+		items[i] = outbound.DraftMAWBItem{
+			ID:                input.ID,
+			PiecesRCP:         input.PiecesRCP,
+			GrossWeight:       fmt.Sprintf("%.2f", input.GrossWeight),
+			KgLb:              input.KgLb,
+			RateClass:         input.RateClass,
+			TotalVolume:       input.TotalVolume,
+			ChargeableWeight:  input.ChargeableWeight,
+			RateCharge:        input.RateCharge,
+			Total:             input.Total,
+			NatureAndQuantity: input.NatureAndQuantity,
+			Dims:              convertDimInputsToDims(input.Dims),
+		}
+	}
+	return items
+}
+
+func convertDimInputsToDims(inputs []outbound.DraftMAWBItemDimInput) []outbound.DraftMAWBItemDim {
+	dims := make([]outbound.DraftMAWBItemDim, len(inputs))
+	for i, input := range inputs {
+		dims[i] = outbound.DraftMAWBItemDim{
+			ID:     input.ID,
+			Length: fmt.Sprintf("%d", input.Length),
+			Width:  fmt.Sprintf("%d", input.Width),
+			Height: fmt.Sprintf("%d", input.Height),
+			Count:  fmt.Sprintf("%d", input.Count),
+		}
+	}
+	return dims
+}
+
+func convertChargeInputsToCharges(inputs []outbound.DraftMAWBChargeInput) []outbound.DraftMAWBCharge {
+	charges := make([]outbound.DraftMAWBCharge, len(inputs))
+	for i, input := range inputs {
+		charges[i] = outbound.DraftMAWBCharge{
+			ID:    input.ID,
+			Key:   input.Key,
+			Value: input.Value,
+		}
+	}
+	return charges
+}
+
+func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, isPreview bool) (bytes.Buffer, error) {
+	// Loading Font
+	frontTHSarabunNew, err := os.ReadFile("assets/THSarabunNew.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+
+	frontTHSarabunNewBold, err := os.ReadFile("assets/THSarabunNew Bold.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+
+	frontTHSarabunNewBoldItalic, err := os.ReadFile("assets/THSarabunNew BoldItalic.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+
+	frontTHSarabunNewItalic, err := os.ReadFile("assets/THSarabunNew Italic.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+
+	var buf bytes.Buffer
+
+	pdf := gofpdf.NewCustom(&gofpdf.InitType{
+		OrientationStr: "P",
+		UnitStr:        "mm",
+		SizeStr:        gofpdf.PageSizeA4,
+	})
+
+	pdf.AddUTF8FontFromBytes("THSarabunNew", "", frontTHSarabunNew)
+	pdf.AddUTF8FontFromBytes("THSarabunNew Bold", "", frontTHSarabunNewBold)
+	pdf.AddUTF8FontFromBytes("THSarabunNew BoldItalic", "", frontTHSarabunNewBoldItalic)
+	pdf.AddUTF8FontFromBytes("THSarabunNew Italic", "", frontTHSarabunNewItalic)
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+
+	pdf.AddPage()
+	pdf.SetMargins(0, 0, 0)
+	pdf.SetAutoPageBreak(true, 0)
+	width, height := pdf.GetPageSize()
+
+	if isPreview {
+		pdf.ImageOptions(
+			"assets/bg-mawb.png", // path to the image
+			0, 0,                 // x, y positions
+			width, height, // width, height to fit full page
+			false, // do not flow the image
+			gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true},
+			0, // link
+			"",
+		)
+	}
+
+	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetXY(7, 4)
+	pdf.MultiCell(51, 5, data.MAWB, "0", "L", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetXY(143, 4)
+	pdf.MultiCell(51, 5, data.HAWB, "0", "C", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+
+	pdf.SetXY(9, 19)
+	pdf.MultiCell(89, 3, data.ShipperNameAndAddress, "0", "LT", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetXY(118, 13)
+	pdf.MultiCell(77, 20, data.AWBIssuedBy, "0", "C", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetXY(9, 45)
+	pdf.MultiCell(89, 3, data.ConsigneeNameAndAddress, "0", "LT", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetXY(8, 65)
+	pdf.CellFormat(89, 15, data.IssuingCarrierAgentName, "0", 0, "C", false, 0, "")
+
+	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetXY(98, 67)
+	pdf.MultiCell(97, 6, data.AccountingInfomation, "0", "C", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetXY(8, 84)
+	pdf.CellFormat(44, 6, data.AgentsIATACode, "0", 0, "L", false, 0, "")
+
+	pdf.SetXY(53, 84)
+	pdf.MultiCell(44, 6, data.AccountNo, "0", "L", false)
+
+	pdf.SetXY(8, 92)
+	pdf.MultiCell(89, 6, data.AirportOfDeparture, "0", "C", false)
+
+	pdf.SetXY(97, 92)
+	pdf.MultiCell(35, 6, data.ReferenceNumber, "0", "C", false)
+
+	pdf.SetXY(132, 92)
+	pdf.MultiCell(30, 6, data.OptionalShippingInfo1, "0", "C", false)
+
+	pdf.SetXY(162, 92)
+	pdf.MultiCell(32, 6, data.OptionalShippingInfo2, "0", "C", false)
+
+	pdf.SetXY(8, 102)
+	pdf.CellFormat(11, 6, data.RoutingTo, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(20, 102)
+	pdf.CellFormat(40, 6, data.RoutingBy, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(62, 102)
+	pdf.CellFormat(11, 6, data.DestinationTo1, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(73, 102)
+	pdf.CellFormat(8, 6, data.DestinationBy1, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(81, 102)
+	pdf.CellFormat(9, 6, data.DestinationTo2, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(90, 102)
+	pdf.CellFormat(8, 6, data.DestinationBy2, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(98, 102)
+	pdf.CellFormat(10, 6, data.Currency, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(106, 102)
+	pdf.CellFormat(8, 6, data.ChgsCode, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(112, 102)
+	pdf.CellFormat(8, 6, data.WtValPpd, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(117, 102)
+	pdf.CellFormat(8, 6, data.WtValColl, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(122, 102)
+	pdf.CellFormat(8, 6, data.OtherPpd, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(127, 102)
+	pdf.CellFormat(8, 6, data.OtherColl, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(132, 102)
+	pdf.CellFormat(31, 6, data.DeclaredValCarriage, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(163, 102)
+	pdf.CellFormat(31, 6, data.DeclaredValCustoms, "0", 0, "C", false, 0, "")
+
+	pdf.SetXY(9, 111)
+	pdf.CellFormat(45, 7, data.AirportOfDestination, "0", 0, "L", false, 0, "")
+
+	pdf.SetXY(54, 111)
+	pdf.MultiCell(22, 7, data.RequestedFlightDate1, "0", "C", false)
+
+	pdf.SetXY(75, 111)
+	pdf.MultiCell(22, 7, data.RequestedFlightDate2, "0", "C", false)
+
+	pdf.SetXY(98, 111)
+	pdf.MultiCell(28, 7, data.AmountOfInsurance, "0", "C", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetXY(9, 119)
+	pdf.MultiCell(156, 12, data.HandlingInfomation, "0", "L", false)
+
+	pdf.SetXY(165, 125)
+	pdf.MultiCell(30, 7, data.SCI, "0", "L", false)
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+	dstartX := float64(8)
+	dStartY := float64(143)
+	pdf.SetY(dStartY)
+
+	for _, v := range data.Items {
+		currentY := pdf.GetY()
+		pdf.SetX(dstartX)
+
+		// No of Pieces RCP
+		pdf.CellFormat(10, 7, v.PiecesRCP, "0", 0, "CM", false, 0, "")
+
+		// Gross Weight
+		pdf.CellFormat(19, 7, fmt.Sprintf("%.2f", v.GrossWeight), "0", 0, "CM", false, 0, "")
+
+		// kg/lb column
+		pdf.CellFormat(8, 7, v.KgLb, "0", 0, "CM", false, 0, "")
+
+		// Rate Class / Commodity Item No.
+		pdf.CellFormat(17, 7, v.RateClass, "0", 0, "L", false, 0, "")
+
+		// Chargeable Weight
+		pdf.CellFormat(19, 7, fmt.Sprintf("%.2f", v.ChargeableWeight), "0", 0, "CM", false, 0, "")
+
+		// Rate Charge
+		pdf.CellFormat(22, 7, fmt.Sprintf("%.2f", v.RateCharge), "0", 0, "CM", false, 0, "")
+
+		// Total
+		pdf.CellFormat(35, 7, fmt.Sprintf("%.2f", v.Total), "0", 0, "CM", false, 0, "")
+
+		// Nature and Quantity of Goods
+		pdf.CellFormat(3, 7, "", "0", 0, "CM", false, 0, "")
+		pdf.MultiCell(57, 4, v.NatureAndQuantity, "0", "L", false)
+		if len(v.Dims) > 0 {
+			pdf.SetFont("THSarabunNew Bold", "", 7)
+
+			// เริ่มพิมพ์ใต้แถวรายการ
+			dimStartY := currentY + 7
+
+			// Label "DIMS:"
+			pdf.SetXY(8, dimStartY)
+			pdf.CellFormat(8, 3, "DIMS:", "", 0, "L", false, 0, "")
+
+			// สร้างข้อความมิติด้วยตัวเลข (%d) และเว้นวรรคคั่นแต่ละก้อน
+			parts := make([]string, 0, len(v.Dims))
+			for _, dim := range v.Dims {
+				parts = append(parts, fmt.Sprintf("%dx%dx%d=%d CNS", dim.Length, dim.Width, dim.Height, dim.Count))
+			}
+			dimText := strings.Join(parts, " ")
+
+			// ตัดบรรทัดตามความกว้าง 45 มม. และคง indent ที่ X=16 ทุกบรรทัด
+			lines := pdf.SplitText(dimText, 45)
+			lineY := dimStartY
+			for _, line := range lines {
+				pdf.SetXY(16, lineY) // indent ใต้คำว่า DIMS:
+				pdf.CellFormat(45, 3, line, "", 0, "L", false, 0, "")
+				lineY += 3
+			}
+
+			// พิมพ์ VOL: ใต้บรรทัดสุดท้ายของ DIMS
+			pdf.SetXY(8, lineY)
+			pdf.MultiCell(45, 3, fmt.Sprintf("VOL: %.3f CBM", v.TotalVolume), "", "L", false)
+
+			pdf.SetFont("THSarabunNew Bold", "", 10)
+			pdf.SetY(pdf.GetY() + 2) // เว้นระยะก่อนรายการถัดไป
+		} else {
+			pdf.Ln(2.5)
+		}
+	}
+
+	pdf.SetXY(6, 204)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.Prepaid), "0", "C", false)
+
+	pdf.SetXY(6, 212)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.ValuationCharge), "0", "C", false)
+
+	pdf.SetXY(6, 221)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.Tax), "0", "C", false)
+
+	pdf.SetXY(6, 230)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.TotalOtherChargesDueAgent), "0", "C", false)
+
+	pdf.SetXY(6, 239)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.TotalOtherChargesDueCarrier), "0", "C", false)
+
+	pdf.SetXY(6, 257)
+	pdf.MultiCell(33, 6, fmt.Sprintf("%.2f", data.TotalPrepaid), "0", "C", false)
+
+	pdf.SetXY(6, 266)
+	pdf.MultiCell(33, 6, data.CurrencyConversionRates, "0", "C", false)
+
+	// Other Charges
+	pdf.SetY(208)
+	for _, v := range data.Charges {
+		pdf.SetX(83)
+		pdf.CellFormat(45, 3.6, v.Key, "0", 0, "L", false, 0, "")
+		pdf.MultiCell(20, 3.6, fmt.Sprintf("%.2f", v.Value), "0", "L", false)
+		pdf.Ln(1)
+	}
+
+	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetXY(82, 247)
+	pdf.MultiCell(120, 5, data.Signature1, "0", "C", false)
+
+	pdf.SetXY(82, 265)
+	pdf.CellFormat(39, 5, data.Signature2Date, "0", 0, "C", false, 0, "")
+	pdf.CellFormat(39, 5, data.Signature2Place, "0", 0, "C", false, 0, "")
+	pdf.CellFormat(39, 5, data.Signature2Issuing, "0", 0, "C", false, 0, "")
+
+	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetXY(136, 280)
+	pdf.MultiCell(51, 3, data.MAWB, "0", "L", false)
+
+	if isPreview {
+		// Add watermark
+		pdf.SetFont("THSarabunNew Bold", "", 78)
+		pdf.SetTextColor(200, 200, 200) // Light grey
+		pdf.TransformBegin()
+		pdf.TransformRotate(45, width/2, height/2) // Rotate 45 degrees
+		pdf.Text(width/2-40, height/2, "P R E V I E W")
+		pdf.TransformEnd()
+	}
+
+	err = pdf.Output(&buf)
+	pdf.Close()
+
+	if err == nil {
+		return buf, nil
+	}
+
+	return bytes.Buffer{}, err
 }
