@@ -14,6 +14,7 @@ type DraftMAWBService interface {
 	CancelDraftMAWB(ctx context.Context, mawbUUID string) error
 	UndoCancelDraftMAWB(ctx context.Context, mawbUUID string) error
 	GetDraftMAWBWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error)
+	GetDraftMAWBWithRelationsByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWBWithRelations, error)
 }
 
 type draftMAWBService struct {
@@ -64,4 +65,7 @@ func (s *draftMAWBService) UndoCancelDraftMAWB(ctx context.Context, mawbUUID str
 
 func (s *draftMAWBService) GetDraftMAWBWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error) {
 	return s.repo.GetWithRelations(ctx, uuid)
+}
+func (s *draftMAWBService) GetDraftMAWBWithRelationsByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWBWithRelations, error) {
+	return s.repo.GetWithRelationsByMAWBUUID(ctx, mawbUUID)
 }

@@ -51,8 +51,8 @@ func (h *mawbInfoHandler) router() chi.Router {
 
 		// Draft MAWB Routes
 		r.Get("/draft-mawb", h.getDraftMAWB)
-		r.Post("/draft-mawb", h.createOrUpdateDraftMAWB)
-		r.Patch("/draft-mawb", h.updateDraftMAWB)
+		r.Post("/draft-mawb", h.createDraftMAWB)
+		r.Put("/draft-mawb", h.updateDraftMAWB)
 		r.Post("/draft-mawb/confirm", h.confirmDraftMAWB)
 		r.Post("/draft-mawb/reject", h.rejectDraftMAWB)
 		r.Get("/draft-mawb/print", h.printDraftMAWB)
@@ -178,7 +178,7 @@ func (h *mawbInfoHandler) getDraftMAWB(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	draft, err := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+	draft, err := h.draftMAWBSvc.GetDraftMAWBWithRelationsByMAWBUUID(r.Context(), mawbUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -188,10 +188,12 @@ func (h *mawbInfoHandler) getDraftMAWB(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render.Respond(w, r, SuccessResponse(draft, "Success"))
+	// Convert to response format
+	response := draft.ToDraftMAWBWithRelationsResponse()
+	render.Respond(w, r, SuccessResponse(response, "Success"))
 }
 
-func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http.Request) {
+func (h *mawbInfoHandler) createDraftMAWB(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
@@ -204,23 +206,19 @@ func (h *mawbInfoHandler) createOrUpdateDraftMAWB(w http.ResponseWriter, r *http
 		return
 	}
 
+	// Check if draft MAWB already exists for this MAWB UUID
+	existing, _ := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
+	if existing != nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusConflict, Message: "Draft MAWB already exists for this MAWB"})
+		return
+	}
+
 	// Convert input to DraftMAWB
 	data := inputData.ToDraftMAWB()
 	data.MAWBInfoUUID = mawbUUID
 
-	// Check if draft MAWB already exists for this MAWB UUID
-	existing, _ := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
-
-	var result *outbound.DraftMAWB
-	var err error
-	if existing != nil {
-		// Update existing draft MAWB
-		data.UUID = existing.UUID
-		result, err = h.draftMAWBSvc.UpdateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
-	} else {
-		// Create new draft MAWB
-		result, err = h.draftMAWBSvc.CreateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
-	}
+	// Create new draft MAWB
+	result, err := h.draftMAWBSvc.CreateDraftMAWB(r.Context(), data, inputData.Items, inputData.Charges)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -242,7 +240,7 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// For PATCH operation, we need to find the existing draft MAWB by mawb_info_uuid first
+	// For PUT operation, we need to find the existing draft MAWB by mawb_info_uuid first
 	existing, err := h.draftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
@@ -687,36 +685,36 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 		)
 	}
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(7, 4)
 	pdf.MultiCell(51, 5, data.MAWB, "0", "L", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(143, 4)
 	pdf.MultiCell(51, 5, data.HAWB, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetFont("THSarabunNew Bold", "", 12)
 
 	pdf.SetXY(9, 19)
-	pdf.MultiCell(89, 3, data.ShipperNameAndAddress, "0", "LT", false)
+	pdf.MultiCell(89, 3.5, data.ShipperNameAndAddress, "0", "LT", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetFont("THSarabunNew Bold", "", 20)
 	pdf.SetXY(118, 13)
 	pdf.MultiCell(77, 20, data.AWBIssuedBy, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetFont("THSarabunNew Bold", "", 12)
 	pdf.SetXY(9, 45)
-	pdf.MultiCell(89, 3, data.ConsigneeNameAndAddress, "0", "LT", false)
+	pdf.MultiCell(89, 3.5, data.ConsigneeNameAndAddress, "0", "LT", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(8, 65)
 	pdf.CellFormat(89, 15, data.IssuingCarrierAgentName, "0", 0, "C", false, 0, "")
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetFont("THSarabunNew Bold", "", 20)
 	pdf.SetXY(98, 67)
 	pdf.MultiCell(97, 6, data.AccountingInfomation, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetFont("THSarabunNew Bold", "", 12)
 	pdf.SetXY(8, 84)
 	pdf.CellFormat(44, 6, data.AgentsIATACode, "0", 0, "L", false, 0, "")
 
@@ -789,14 +787,14 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.SetXY(98, 111)
 	pdf.MultiCell(28, 7, data.AmountOfInsurance, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(9, 119)
 	pdf.MultiCell(156, 12, data.HandlingInfomation, "0", "L", false)
 
 	pdf.SetXY(165, 125)
 	pdf.MultiCell(30, 7, data.SCI, "0", "L", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 10)
+	pdf.SetFont("THSarabunNew Bold", "", 12)
 	dstartX := float64(8)
 	dStartY := float64(143)
 	pdf.SetY(dStartY)
@@ -841,7 +839,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 		pdf.CellFormat(3, 7, "", "0", 0, "CM", false, 0, "")
 		pdf.MultiCell(57, 4, v.NatureAndQuantity, "0", "L", false)
 		if len(v.Dims) > 0 {
-			pdf.SetFont("THSarabunNew Bold", "", 7)
+			pdf.SetFont("THSarabunNew Bold", "", 9)
 
 			// เริ่มพิมพ์ใต้แถวรายการ
 			dimStartY := currentY + 7
@@ -870,7 +868,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 			pdf.SetXY(8, lineY)
 			pdf.MultiCell(45, 3, fmt.Sprintf("VOL: %.3f CBM", v.TotalVolume), "", "L", false)
 
-			pdf.SetFont("THSarabunNew Bold", "", 10)
+			pdf.SetFont("THSarabunNew Bold", "", 12)
 			pdf.SetY(pdf.GetY() + 2) // เว้นระยะก่อนรายการถัดไป
 		} else {
 			pdf.Ln(2.5)
@@ -907,7 +905,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 		pdf.Ln(1)
 	}
 
-	pdf.SetFont("THSarabunNew Bold", "", 14)
+	pdf.SetFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(82, 247)
 	pdf.MultiCell(120, 5, data.Signature1, "0", "C", false)
 
@@ -916,13 +914,13 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.CellFormat(39, 5, data.Signature2Place, "0", 0, "C", false, 0, "")
 	pdf.CellFormat(39, 5, data.Signature2Issuing, "0", 0, "C", false, 0, "")
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	pdf.SetFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(136, 280)
 	pdf.MultiCell(51, 3, data.MAWB, "0", "L", false)
 
 	if isPreview {
 		// Add watermark
-		pdf.SetFont("THSarabunNew Bold", "", 78)
+		pdf.SetFont("THSarabunNew Bold", "", 85)
 		pdf.SetTextColor(200, 200, 200) // Light grey
 		pdf.TransformBegin()
 		pdf.TransformRotate(45, width/2, height/2) // Rotate 45 degrees

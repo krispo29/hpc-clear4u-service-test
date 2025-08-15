@@ -22,6 +22,7 @@ type DraftMAWBRepository interface {
 	CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	GetWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error)
+	GetWithRelationsByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWBWithRelations, error)
 }
 
 type draftMAWBRepository struct{}
@@ -442,6 +443,47 @@ func (r *draftMAWBRepository) GetWithRelations(ctx context.Context, uuid string)
 	// Get charges
 	var charges []DraftMAWBCharge
 	err = db.Model(&charges).Where("draft_mawb_uuid = ?", uuid).Select()
+	if err != nil && err != pg.ErrNoRows {
+		return nil, err
+	}
+
+	return &DraftMAWBWithRelations{
+		DraftMAWB: draft,
+		Items:     items,
+		Charges:   charges,
+	}, nil
+}
+
+// GetWithRelationsByMAWBUUID retrieves a draft MAWB with its items and charges by MAWB UUID
+func (r *draftMAWBRepository) GetWithRelationsByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWBWithRelations, error) {
+	// Get the main draft MAWB by MAWB UUID
+	draft, err := r.GetByMAWBUUID(ctx, mawbUUID)
+	if err != nil || draft == nil {
+		return nil, err
+	}
+
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Get items
+	var items []DraftMAWBItem
+	err = db.Model(&items).Where("draft_mawb_uuid = ?", draft.UUID).Select()
+	if err != nil && err != pg.ErrNoRows {
+		return nil, err
+	}
+
+	// Get dimensions for each item
+	for i := range items {
+		var dims []DraftMAWBItemDim
+		err = db.Model(&dims).Where("draft_mawb_item_id = ?", items[i].ID).Select()
+		if err != nil && err != pg.ErrNoRows {
+			return nil, err
+		}
+		items[i].Dims = dims
+	}
+
+	// Get charges
+	var charges []DraftMAWBCharge
+	err = db.Model(&charges).Where("draft_mawb_uuid = ?", draft.UUID).Select()
 	if err != nil && err != pg.ErrNoRows {
 		return nil, err
 	}
