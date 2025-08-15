@@ -812,8 +812,19 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 		pdf.CellFormat(19, 7, fmt.Sprintf("%.2f", v.GrossWeight), "0", 0, "CM", false, 0, "")
 
 		// kg/lb column
-		pdf.CellFormat(8, 7, v.KgLb, "0", 0, "CM", false, 0, "")
+		// pdf.CellFormat(8, 7, v.KgLb, "0", 0, "CM", false, 0, "")
+		{
+			// จุดเริ่มของคอลัมน์ Kg/Lb เดิม
+			x := pdf.GetX()
+			y := currentY
 
+			nudge := -3.1 // ปรับระยะเลื่อนซ้าย (มม.) ตามต้องการ เช่น -2 หรือ -3
+			colW := 8.0   // ความกว้างคอลัมน์ Kg/Lb
+
+			pdf.SetXY(x+nudge, y)                                     // ขยับซ้ายชั่วคราว
+			pdf.CellFormat(colW, 7, v.KgLb, "", 0, "L", false, 0, "") // ชิดซ้ายในคอลัมน์
+			pdf.SetXY(x+colW, y)                                      // คืนตำแหน่ง X ไปท้ายคอลัมน์เดิม เพื่อไม่ให้คอลัมน์ถัดไปเลื่อนตาม
+		}
 		// Rate Class / Commodity Item No.
 		pdf.CellFormat(17, 7, v.RateClass, "0", 0, "L", false, 0, "")
 
