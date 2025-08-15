@@ -293,8 +293,50 @@ func (h *mawbInfoHandler) rejectDraftMAWB(w http.ResponseWriter, r *http.Request
 }
 
 func (h *mawbInfoHandler) printDraftMAWB(w http.ResponseWriter, r *http.Request) {
-	// PDF generation logic goes here
-	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	// Get the existing draft MAWB data from database
+	draft, err := h.draftMAWBSvc.GetDraftMAWBWithRelationsByMAWBUUID(r.Context(), mawbUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if draft == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Draft MAWB not found for this MAWB"})
+		return
+	}
+
+	// Convert to input format for PDF generation
+	inputData := draft.ToDraftMAWBInput()
+
+	// Generate PDF for printing (without preview watermark)
+	pdfBuffer, err := h.generateDraftMAWBPDF(inputData, false)
+	if err != nil {
+		log.Printf("Error generating PDF: %v", err)
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("failed to generate PDF: %v", err)))
+		return
+	}
+
+	// Set CORS headers for better browser compatibility
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Set headers for PDF response
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=draft_mawb_print.pdf") // Changed to inline for iframe printing
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Write PDF to response
+	w.WriteHeader(http.StatusOK)
+	w.Write(pdfBuffer.Bytes())
 }
 
 func (h *mawbInfoHandler) getAllDraftMAWB(w http.ResponseWriter, r *http.Request) {
@@ -693,8 +735,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.SetXY(143, 4)
 	pdf.MultiCell(51, 5, data.HAWB, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 12)
-
+	pdf.SetFont("THSarabunNew Bold", "", 18)
 	pdf.SetXY(9, 19)
 	pdf.MultiCell(89, 3.5, data.ShipperNameAndAddress, "0", "LT", false)
 
@@ -702,7 +743,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.SetXY(118, 13)
 	pdf.MultiCell(77, 20, data.AWBIssuedBy, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 12)
+	pdf.SetFont("THSarabunNew Bold", "", 18)
 	pdf.SetXY(9, 45)
 	pdf.MultiCell(89, 3.5, data.ConsigneeNameAndAddress, "0", "LT", false)
 
@@ -714,10 +755,11 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.SetXY(98, 67)
 	pdf.MultiCell(97, 6, data.AccountingInfomation, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 12)
+	pdf.SetFont("THSarabunNew Bold", "", 15)
 	pdf.SetXY(8, 84)
 	pdf.CellFormat(44, 6, data.AgentsIATACode, "0", 0, "L", false, 0, "")
 
+	pdf.SetFont("THSarabunNew Bold", "", 15)
 	pdf.SetXY(53, 84)
 	pdf.MultiCell(44, 6, data.AccountNo, "0", "L", false)
 
@@ -794,7 +836,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 	pdf.SetXY(165, 125)
 	pdf.MultiCell(30, 7, data.SCI, "0", "L", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 12)
+	pdf.SetFont("THSarabunNew Bold", "", 15)
 	dstartX := float64(8)
 	dStartY := float64(143)
 	pdf.SetY(dStartY)
@@ -839,14 +881,14 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 		pdf.CellFormat(3, 7, "", "0", 0, "CM", false, 0, "")
 		pdf.MultiCell(57, 4, v.NatureAndQuantity, "0", "L", false)
 		if len(v.Dims) > 0 {
-			pdf.SetFont("THSarabunNew Bold", "", 9)
+			pdf.SetFont("THSarabunNew Bold", "", 18) // เพิ่มขนาดฟอนต์เป็นสองเท่า (9 -> 18)
 
 			// เริ่มพิมพ์ใต้แถวรายการ
 			dimStartY := currentY + 7
 
-			// Label "DIMS:"
-			pdf.SetXY(8, dimStartY)
-			pdf.CellFormat(8, 3, "DIMS:", "", 0, "L", false, 0, "")
+			// Label "DIMS:" - ย้ายมาตรงกลาง
+			pdf.SetXY(32, dimStartY)                                 // ย้ายจาก X=8 มาที่ X=32 เพื่อให้อยู่ตรงกลาง
+			pdf.CellFormat(16, 6, "DIMS:", "", 0, "L", false, 0, "") // เพิ่มความสูงเป็น 6
 
 			// สร้างข้อความมิติด้วยตัวเลข (%d) และเว้นวรรคคั่นแต่ละก้อน
 			parts := make([]string, 0, len(v.Dims))
@@ -855,21 +897,21 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, is
 			}
 			dimText := strings.Join(parts, " ")
 
-			// ตัดบรรทัดตามความกว้าง 45 มม. และคง indent ที่ X=16 ทุกบรรทัด
+			// ตัดบรรทัดตามความกว้าง 45 มม. และคง indent ที่ตรงกลาง
 			lines := pdf.SplitText(dimText, 45)
 			lineY := dimStartY
 			for _, line := range lines {
-				pdf.SetXY(16, lineY) // indent ใต้คำว่า DIMS:
-				pdf.CellFormat(45, 3, line, "", 0, "L", false, 0, "")
-				lineY += 3
+				pdf.SetXY(48, lineY)                                  // ย้ายจาก X=16 มาที่ X=48 เพื่อให้อยู่ตรงกลาง
+				pdf.CellFormat(45, 6, line, "", 0, "L", false, 0, "") // เพิ่มความสูงเป็น 6
+				lineY += 6                                            // เพิ่มระยะห่างระหว่างบรรทัด
 			}
 
-			// พิมพ์ VOL: ใต้บรรทัดสุดท้ายของ DIMS
-			pdf.SetXY(8, lineY)
-			pdf.MultiCell(45, 3, fmt.Sprintf("VOL: %.3f CBM", v.TotalVolume), "", "L", false)
+			// พิมพ์ VOL: ใต้บรรทัดสุดท้ายของ DIMS - ย้ายมาตรงกลาง
+			pdf.SetXY(32, lineY)                                                              // ย้ายจาก X=8 มาที่ X=32 เพื่อให้อยู่ตรงกลาง
+			pdf.MultiCell(45, 6, fmt.Sprintf("VOL: %.3f CBM", v.TotalVolume), "", "L", false) // เพิ่มความสูงเป็น 6
 
-			pdf.SetFont("THSarabunNew Bold", "", 12)
-			pdf.SetY(pdf.GetY() + 2) // เว้นระยะก่อนรายการถัดไป
+			pdf.SetFont("THSarabunNew Bold", "", 15)
+			pdf.SetY(pdf.GetY() + 4) // เพิ่มระยะห่างก่อนรายการถัดไป
 		} else {
 			pdf.Ln(2.5)
 		}

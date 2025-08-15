@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -345,6 +346,141 @@ type DraftMAWBChargeInput struct {
 
 func (d *DraftMAWBInput) Bind(r *http.Request) error {
 	return nil
+}
+
+// ToDraftMAWBInput converts DraftMAWBWithRelations to DraftMAWBInput
+func (d *DraftMAWBWithRelations) ToDraftMAWBInput() *DraftMAWBInput {
+	// Convert items
+	items := make([]DraftMAWBItemInput, len(d.Items))
+	for i, item := range d.Items {
+		// Convert dimensions
+		dims := make([]DraftMAWBItemDimInput, len(item.Dims))
+		for j, dim := range item.Dims {
+			// Parse string values to int
+			length := 0
+			width := 0
+			height := 0
+			count := 0
+
+			// Simple string to int conversion (you might want to add error handling)
+			if dim.Length != "" {
+				if val, err := strconv.Atoi(dim.Length); err == nil {
+					length = val
+				}
+			}
+			if dim.Width != "" {
+				if val, err := strconv.Atoi(dim.Width); err == nil {
+					width = val
+				}
+			}
+			if dim.Height != "" {
+				if val, err := strconv.Atoi(dim.Height); err == nil {
+					height = val
+				}
+			}
+			if dim.Count != "" {
+				if val, err := strconv.Atoi(dim.Count); err == nil {
+					count = val
+				}
+			}
+
+			dims[j] = DraftMAWBItemDimInput{
+				ID:     dim.ID,
+				Length: length,
+				Width:  width,
+				Height: height,
+				Count:  count,
+			}
+		}
+
+		// Parse gross weight from string to float64
+		grossWeight := 0.0
+		if item.GrossWeight != "" {
+			if val, err := strconv.ParseFloat(item.GrossWeight, 64); err == nil {
+				grossWeight = val
+			}
+		}
+
+		items[i] = DraftMAWBItemInput{
+			ID:                item.ID,
+			PiecesRCP:         item.PiecesRCP,
+			GrossWeight:       grossWeight,
+			KgLb:              item.KgLb,
+			RateClass:         item.RateClass,
+			TotalVolume:       item.TotalVolume,
+			ChargeableWeight:  item.ChargeableWeight,
+			RateCharge:        item.RateCharge,
+			Total:             item.Total,
+			NatureAndQuantity: item.NatureAndQuantity,
+			Dims:              dims,
+		}
+	}
+
+	// Convert charges
+	charges := make([]DraftMAWBChargeInput, len(d.Charges))
+	for i, charge := range d.Charges {
+		charges[i] = DraftMAWBChargeInput{
+			ID:    charge.ID,
+			Key:   charge.Key,
+			Value: charge.Value,
+		}
+	}
+
+	return &DraftMAWBInput{
+		UUID:                        d.UUID,
+		MAWBInfoUUID:                d.MAWBInfoUUID,
+		CustomerUUID:                d.CustomerUUID,
+		AirlineLogo:                 d.AirlineLogo,
+		AirlineName:                 d.AirlineName,
+		MAWB:                        d.MAWB,
+		HAWB:                        d.HAWB,
+		ShipperNameAndAddress:       d.ShipperNameAndAddress,
+		AWBIssuedBy:                 d.AWBIssuedBy,
+		ConsigneeNameAndAddress:     d.ConsigneeNameAndAddress,
+		IssuingCarrierAgentName:     d.IssuingCarrierAgentName,
+		AccountingInfomation:        d.AccountingInfomation,
+		AgentsIATACode:              d.AgentsIATACode,
+		AccountNo:                   d.AccountNo,
+		AirportOfDeparture:          d.AirportOfDeparture,
+		ReferenceNumber:             d.ReferenceNumber,
+		OptionalShippingInfo1:       d.OptionalShippingInfo1,
+		OptionalShippingInfo2:       d.OptionalShippingInfo2,
+		RoutingTo:                   d.RoutingTo,
+		RoutingBy:                   d.RoutingBy,
+		DestinationTo1:              d.DestinationTo1,
+		DestinationBy1:              d.DestinationBy1,
+		DestinationTo2:              d.DestinationTo2,
+		DestinationBy2:              d.DestinationBy2,
+		Currency:                    d.Currency,
+		ChgsCode:                    d.ChgsCode,
+		WtValPpd:                    d.WtValPpd,
+		WtValColl:                   d.WtValColl,
+		OtherPpd:                    d.OtherPpd,
+		OtherColl:                   d.OtherColl,
+		DeclaredValCarriage:         d.DeclaredValCarriage,
+		DeclaredValCustoms:          d.DeclaredValCustoms,
+		AirportOfDestination:        d.AirportOfDestination,
+		RequestedFlightDate1:        d.RequestedFlightDate1,
+		RequestedFlightDate2:        d.RequestedFlightDate2,
+		AmountOfInsurance:           d.AmountOfInsurance,
+		HandlingInfomation:          d.HandlingInfomation,
+		SCI:                         d.SCI,
+		Prepaid:                     d.Prepaid,
+		ValuationCharge:             d.ValuationCharge,
+		Tax:                         d.Tax,
+		TotalOtherChargesDueAgent:   d.TotalOtherChargesDueAgent,
+		TotalOtherChargesDueCarrier: d.TotalOtherChargesDueCarrier,
+		TotalPrepaid:                d.TotalPrepaid,
+		CurrencyConversionRates:     d.CurrencyConversionRates,
+		Signature1:                  d.Signature1,
+		Signature2Date:              d.Signature2Date,
+		Signature2Place:             d.Signature2Place,
+		Signature2Issuing:           d.Signature2Issuing,
+		ShippingMark:                d.ShippingMark,
+		AirlineUUID:                 d.AirlineUUID,
+		Items:                       items,
+		Charges:                     charges,
+	}
 }
 
 // ToDraftMAWB converts DraftMAWBInput to DraftMAWB
