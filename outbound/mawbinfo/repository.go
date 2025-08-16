@@ -330,12 +330,17 @@ func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *Updat
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Ensure table exists with attachments column
+	err := r.createTableIfNotExists(ctx, db)
+	if err != nil {
+		return nil, utils.PostgresErrorTransform(err)
+	}
+
 	// Get existing attachments first with a fresh context
 	getCtx := context.WithValue(context.Background(), "postgreSQLConn", db)
 	existingRecord, err := r.GetMawbInfo(getCtx, uuid)
 	if err != nil {
 		// If record not found, continue with empty attachments
-		// This handles the case where the record might not exist yet
 		existingRecord = &MawbInfoResponse{
 			Attachments: []AttachmentInfo{},
 		}
@@ -350,17 +355,28 @@ func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *Updat
 		allAttachments = append(allAttachments, attachments...)
 	}
 
-	// Convert combined attachments to JSON
-	var attachmentsJSON []byte
+	// Convert combined attachments to JSON string
+	var attachmentsJSONStr string
 	if len(allAttachments) > 0 {
-		attachmentsJSON, err = json.Marshal(allAttachments)
+		attachmentsJSON, err := json.Marshal(allAttachments)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal attachments: %v", err)
 		}
+		attachmentsJSONStr = string(attachmentsJSON)
+
+		// Validate that the JSON is valid
+		var testUnmarshal []AttachmentInfo
+		if err := json.Unmarshal(attachmentsJSON, &testUnmarshal); err != nil {
+			return nil, fmt.Errorf("generated invalid JSON for attachments: %v", err)
+		}
+	} else {
+		attachmentsJSONStr = "[]"
 	}
 
 	var response MawbInfoResponse
 	var attachmentsStr string
+
+	// Update with attachments in single query
 	sqlStr := `
 		UPDATE tbl_mawb_info 
 		SET 
@@ -369,7 +385,7 @@ func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *Updat
 			mawb = ?, 
 			service_type = ?, 
 			shipping_type = ?,
-			attachments = ?,
+			attachments = ?::jsonb,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE uuid = ?
 		RETURNING 
@@ -405,7 +421,7 @@ func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *Updat
 		data.Mawb,
 		data.ServiceType,
 		data.ShippingType,
-		string(attachmentsJSON),
+		attachmentsJSONStr,
 		uuid,
 	)
 
@@ -413,13 +429,15 @@ func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *Updat
 		return nil, utils.PostgresErrorTransform(err)
 	}
 
-	// Parse attachments JSON
+	// Parse attachments JSON from the returned data
 	if attachmentsStr != "" && attachmentsStr != "[]" {
 		err = json.Unmarshal([]byte(attachmentsStr), &response.Attachments)
 		if err != nil {
 			// If parsing fails, set empty array
 			response.Attachments = []AttachmentInfo{}
 		}
+	} else {
+		response.Attachments = []AttachmentInfo{}
 	}
 
 	return &response, nil

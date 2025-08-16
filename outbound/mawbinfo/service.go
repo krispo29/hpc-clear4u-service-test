@@ -227,15 +227,20 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 
 	// Handle file attachments if present
 	var attachmentInfos []AttachmentInfo
+	fmt.Printf("DEBUG: Number of attachments received: %d\n", len(data.Attachments))
+
 	if len(data.Attachments) > 0 {
 		// Create upload directory based on MAWB and date
 		uploadPath := filepath.Join("uploads", "mawb", data.Mawb, data.Date)
+		fmt.Printf("DEBUG: Upload path: %s\n", uploadPath)
 
 		// Upload files
 		fileInfos, err := utils.UploadDocumentsToLocal(uploadPath, data.Attachments)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload attachments: %v", err)
 		}
+
+		fmt.Printf("DEBUG: Successfully uploaded %d files\n", len(fileInfos))
 
 		// Convert to AttachmentInfo
 		for _, fileInfo := range fileInfos {
@@ -245,8 +250,11 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 				FileSize: fileInfo["fileSize"].(int64),
 			}
 			attachmentInfos = append(attachmentInfos, attachmentInfo)
+			fmt.Printf("DEBUG: Added attachment: %+v\n", attachmentInfo)
 		}
 	}
+
+	fmt.Printf("DEBUG: Final attachmentInfos count: %d\n", len(attachmentInfos))
 
 	// Call repository to update MAWB info
 	result, err := s.selfRepo.UpdateMawbInfo(ctx, uuid, data, chargeableWeight, attachmentInfos)
@@ -254,9 +262,10 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 		return nil, err
 	}
 
+	fmt.Printf("DEBUG: Repository result attachments count: %d\n", len(result.Attachments))
+
 	return result, nil
 }
-
 func (s *service) DeleteMawbInfo(ctx context.Context, uuid string) error {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
