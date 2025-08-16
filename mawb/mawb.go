@@ -3,7 +3,7 @@ package mawb
 import "net/http"
 
 type RequestDraftModel struct {
-	CustomerUUID                string             `json:"customerUUID" validate:"required"`
+	CustomerUUID                string             `json:"customerUuid" validate:"required"`
 	Mawb                        string             `json:"mawb"`
 	Hawb                        string             `json:"hawb"`
 	ShipperNameAndAddress       string             `json:"shipperNameAndAddress"`
