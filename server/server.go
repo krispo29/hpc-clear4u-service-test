@@ -163,9 +163,6 @@ func New(
 				outboundExpressServiceSvc := outboundExpressHandler{s.svcFactory.OutboundExpressServiceSvc}
 				r.Mount("/express", outboundExpressServiceSvc.router())
 
-				outboundMawbServiceSvc := outboundMawbHandler{s.svcFactory.OutboundMawbServiceSvc}
-				r.Mount("/mawb", outboundMawbServiceSvc.router())
-
 			})
 
 			// authSvc := authHandler{s.svcFactory.AuthSvc}
