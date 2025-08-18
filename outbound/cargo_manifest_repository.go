@@ -28,8 +28,8 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 
 	manifest := &CargoManifest{}
 	err := db.Model(manifest).
-		Column("cargo_manifest.*", "Status.name as status").
-		Join("JOIN master_status AS Status ON Status.uuid = cargo_manifest.status_uuid").
+		Column("cargo_manifest.*", "ms.name as status").
+		Join("JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
 		Where("cargo_manifest.mawb_info_uuid = ?", mawbUUID).
 		Select()
 
