@@ -134,7 +134,10 @@ func New(
 			mawbSvc := mawbHandler{s.svcFactory.MawbSvc}
 			r.Mount("/mawb", mawbSvc.router())
 
-			settingSvc := settingHandler{s.svcFactory.SettingSvc}
+			settingSvc := settingHandler{
+				s:         s.svcFactory.SettingSvc,
+				statusSvc: s.svcFactory.MasterStatusSvc,
+			}
 			r.Mount("/settings", settingSvc.router())
 
 			dropdownSvc := dropdownHandler{s.svcFactory.DropdownSvc}
@@ -144,6 +147,7 @@ func New(
 				s:                s.svcFactory.MawbInfoSvc,
 				cargoManifestSvc: s.svcFactory.CargoManifestSvc,
 				draftMAWBSvc:     s.svcFactory.DraftMAWBSvc,
+				statusSvc:        s.svcFactory.MasterStatusSvc,
 			}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
 

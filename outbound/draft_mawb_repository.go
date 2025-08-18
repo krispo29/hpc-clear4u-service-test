@@ -15,10 +15,8 @@ type DraftMAWBRepository interface {
 	GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
 	Create(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	Update(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
-	UpdateStatus(ctx context.Context, uuid, status string) error
+	UpdateStatus(ctx context.Context, uuid, statusUUID string) error
 	GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
-	CancelByMAWBUUID(ctx context.Context, mawbUUID string) error
-	UndoCancelByMAWBUUID(ctx context.Context, mawbUUID string) error
 	CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	GetWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error)
@@ -39,6 +37,8 @@ func (r *draftMAWBRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string
 
 	draft := &DraftMAWB{}
 	err = q.Model(draft).
+		Column("draft_mawb.*", "Status.name as status").
+		Join("JOIN master_status AS Status ON Status.uuid = draft_mawb.status_uuid").
 		Where("mawb_info_uuid = ?", mawbUUID).
 		Select()
 
@@ -60,6 +60,8 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 
 	draft := &DraftMAWB{}
 	err = q.Model(draft).
+		Column("draft_mawb.*", "Status.name as status").
+		Join("JOIN master_status AS Status ON Status.uuid = draft_mawb.status_uuid").
 		Where("uuid = ?", uuid).
 		Select()
 
@@ -136,10 +138,10 @@ func (r *draftMAWBRepository) Update(ctx context.Context, draftMAWB *DraftMAWB) 
 }
 
 // UpdateStatus updates the status of a draft MAWB.
-func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, status string) error {
+func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, statusUUID string) error {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 	_, err := db.Model(&DraftMAWB{}).
-		Set("status = ?, updated_at = ?", status, time.Now()).
+		Set("status_uuid = ?, updated_at = ?", statusUUID, time.Now()).
 		Where("uuid = ?", uuid).
 		Update()
 	return err
@@ -162,11 +164,12 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 			COALESCE(dm.consignee_name_and_address, '') as consignee_name_and_address,
 			COALESCE(c.name, '') as customer_name,
 			TO_CHAR(dm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') as created_at,
-			COALESCE(dm.status, 'Draft') as status,
-			CASE WHEN dm.status = 'Cancelled' THEN true ELSE false END as is_deleted
+			COALESCE(ms.name, 'Draft') as status,
+			CASE WHEN ms.name = 'Cancelled' THEN true ELSE false END as is_deleted
 		FROM public.draft_mawb dm
 		LEFT JOIN public.tbl_mawb_info mi ON dm.mawb_info_uuid::text = mi.uuid::text
 		LEFT JOIN public.tbl_customers c ON dm.customer_uuid::text = c.uuid::text
+		LEFT JOIN public.master_status ms ON dm.status_uuid = ms.uuid
 	`
 
 	var whereConditions []string
@@ -196,26 +199,6 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 	}
 
 	return items, nil
-}
-
-// CancelByMAWBUUID cancels a draft MAWB by setting status to 'Cancelled'
-func (r *draftMAWBRepository) CancelByMAWBUUID(ctx context.Context, mawbUUID string) error {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	_, err := db.Model(&DraftMAWB{}).
-		Set("status = ?, updated_at = ?", "Cancelled", time.Now()).
-		Where("mawb_info_uuid = ?", mawbUUID).
-		Update()
-	return err
-}
-
-// UndoCancelByMAWBUUID recovers a cancelled draft MAWB by setting status back to 'Draft'
-func (r *draftMAWBRepository) UndoCancelByMAWBUUID(ctx context.Context, mawbUUID string) error {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	_, err := db.Model(&DraftMAWB{}).
-		Set("status = ?, updated_at = ?", "Draft", time.Now()).
-		Where("mawb_info_uuid = ?", mawbUUID).
-		Update()
-	return err
 }
 
 // CreateWithRelations creates a new draft MAWB with its items and charges

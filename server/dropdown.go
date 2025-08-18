@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,8 +20,26 @@ func (h *dropdownHandler) router() chi.Router {
 	r.Get("/service-type", h.getServiceTypes)
 	r.Get("/shipping-type", h.getShippingTypes)
 	r.Get("/airline-logo", h.getAirlineLogos)
+	r.Get("/master-statuses", h.getMasterStatuses)
 
 	return r
+}
+
+func (h *dropdownHandler) getMasterStatuses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	statusType := r.URL.Query().Get("type")
+	if statusType == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("type query parameter is required")))
+		return
+	}
+
+	statuses, err := h.dropdownSvc.GetMasterStatusesByType(ctx, statusType)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(statuses, "Master statuses retrieved successfully"))
 }
 
 func (h *dropdownHandler) getServiceTypes(w http.ResponseWriter, r *http.Request) {

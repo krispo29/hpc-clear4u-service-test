@@ -1,0 +1,77 @@
+package setting
+
+import (
+	"context"
+
+	"github.com/go-pg/pg/v9"
+)
+
+type MasterStatusRepository interface {
+	CreateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error)
+	GetAllMasterStatuses(ctx context.Context) ([]MasterStatus, error)
+	GetMasterStatusesByType(ctx context.Context, statusType string) ([]MasterStatus, error)
+	GetMasterStatusByUUID(ctx context.Context, uuid string) (*MasterStatus, error)
+	UpdateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error)
+	DeleteMasterStatus(ctx context.Context, uuid string) error
+	GetDefaultStatusByType(ctx context.Context, statusType string) (*MasterStatus, error)
+	GetStatusByNameAndType(ctx context.Context, name, statusType string) (*MasterStatus, error)
+}
+
+type masterStatusRepository struct{}
+
+func NewMasterStatusRepository() MasterStatusRepository {
+	return &masterStatusRepository{}
+}
+
+func (r *masterStatusRepository) CreateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.ModelContext(ctx, status).Insert()
+	return status, err
+}
+
+func (r *masterStatusRepository) GetAllMasterStatuses(ctx context.Context) ([]MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	var statuses []MasterStatus
+	err := db.ModelContext(ctx, &statuses).Select()
+	return statuses, err
+}
+
+func (r *masterStatusRepository) GetMasterStatusesByType(ctx context.Context, statusType string) ([]MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	var statuses []MasterStatus
+	err := db.ModelContext(ctx, &statuses).Where("type = ?", statusType).Select()
+	return statuses, err
+}
+
+func (r *masterStatusRepository) GetMasterStatusByUUID(ctx context.Context, uuid string) (*MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	status := new(MasterStatus)
+	err := db.ModelContext(ctx, status).Where("uuid = ?", uuid).Select()
+	return status, err
+}
+
+func (r *masterStatusRepository) UpdateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.ModelContext(ctx, status).WherePK().Update()
+	return status, err
+}
+
+func (r *masterStatusRepository) DeleteMasterStatus(ctx context.Context, uuid string) error {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.ModelContext(ctx, &MasterStatus{}).Where("uuid = ?", uuid).Delete()
+	return err
+}
+
+func (r *masterStatusRepository) GetDefaultStatusByType(ctx context.Context, statusType string) (*MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	status := new(MasterStatus)
+	err := db.ModelContext(ctx, status).Where("type = ?", statusType).Where("is_default = ?", true).First()
+	return status, err
+}
+
+func (r *masterStatusRepository) GetStatusByNameAndType(ctx context.Context, name, statusType string) (*MasterStatus, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	status := new(MasterStatus)
+	err := db.ModelContext(ctx, status).Where("name = ?", name).Where("type = ?", statusType).First()
+	return status, err
+}

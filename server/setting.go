@@ -12,7 +12,8 @@ import (
 )
 
 type settingHandler struct {
-	s setting.Service
+	s         setting.Service
+	statusSvc setting.MasterStatusService
 }
 
 func (h *settingHandler) router() chi.Router {
@@ -26,7 +27,95 @@ func (h *settingHandler) router() chi.Router {
 		r.Patch("/{uuid}", h.updateStatusHsCode)
 	})
 
+	r.Route("/master-status", func(r chi.Router) {
+		r.Post("/", h.createMasterStatus)
+		r.Get("/", h.getAllMasterStatuses)
+		r.Get("/{uuid}", h.getOneMasterStatus)
+		r.Put("/", h.updateMasterStatus)
+		r.Delete("/{uuid}", h.deleteMasterStatus)
+	})
+
 	return r
+}
+
+func (h *settingHandler) createMasterStatus(w http.ResponseWriter, r *http.Request) {
+	data := &setting.MasterStatus{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Validate Data
+	validate := validator.New()
+	err := validate.Struct(data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	createdStatus, err := h.statusSvc.CreateMasterStatus(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(createdStatus, "success"))
+}
+
+func (h *settingHandler) getAllMasterStatuses(w http.ResponseWriter, r *http.Request) {
+	statuses, err := h.statusSvc.GetAllMasterStatuses(r.Context())
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(statuses, "success"))
+}
+
+func (h *settingHandler) getOneMasterStatus(w http.ResponseWriter, r *http.Request) {
+	uuid := chi.URLParam(r, "uuid")
+	status, err := h.statusSvc.GetMasterStatusByUUID(r.Context(), uuid)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(status, "success"))
+}
+
+func (h *settingHandler) updateMasterStatus(w http.ResponseWriter, r *http.Request) {
+	data := &setting.MasterStatus{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Validate Data
+	validate := validator.New()
+	err := validate.Struct(data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	updatedStatus, err := h.statusSvc.UpdateMasterStatus(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(updatedStatus, "success"))
+}
+
+func (h *settingHandler) deleteMasterStatus(w http.ResponseWriter, r *http.Request) {
+	uuid := chi.URLParam(r, "uuid")
+	err := h.statusSvc.DeleteMasterStatus(r.Context(), uuid)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "success"))
 }
 
 func (h *settingHandler) createHsCode(w http.ResponseWriter, r *http.Request) {

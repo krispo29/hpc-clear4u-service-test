@@ -8,6 +8,7 @@ import (
 
 type Repository interface {
 	GetAirlineLogos(ctx context.Context) ([]AirlineLogoModel, error)
+	GetMasterStatusesByType(ctx context.Context, statusType string) ([]MasterStatusModel, error)
 }
 
 type AirlineLogoModel struct {
@@ -16,6 +17,13 @@ type AirlineLogoModel struct {
 	Name     string `pg:"name" json:"name"`
 	LogoURL  string `pg:"logo_url" json:"logo_url"`
 	IsActive bool   `pg:"is_active" json:"is_active"`
+}
+
+type MasterStatusModel struct {
+	UUID      string `pg:"uuid" json:"uuid"`
+	Name      string `pg:"name" json:"name"`
+	Type      string `pg:"type" json:"type"`
+	IsDefault bool   `pg:"is_default" json:"isDefault"`
 }
 
 type repository struct {
@@ -54,4 +62,33 @@ func (r *repository) GetAirlineLogos(ctx context.Context) ([]AirlineLogoModel, e
 	}
 
 	return airlines, nil
+}
+
+func (r *repository) GetMasterStatusesByType(ctx context.Context, statusType string) ([]MasterStatusModel, error) {
+	dbValue := ctx.Value("postgreSQLConn")
+	if dbValue == nil {
+		return []MasterStatusModel{}, nil
+	}
+
+	db, ok := dbValue.(*pg.DB)
+	if !ok || db == nil {
+		return []MasterStatusModel{}, nil
+	}
+
+	var statuses []MasterStatusModel
+	_, err := db.QueryContext(ctx, &statuses, `
+		SELECT uuid, name, type, is_default
+		FROM master_status
+		WHERE type = ?
+		ORDER BY name
+	`, statusType)
+
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return []MasterStatusModel{}, nil
+		}
+		return nil, err
+	}
+
+	return statuses, nil
 }

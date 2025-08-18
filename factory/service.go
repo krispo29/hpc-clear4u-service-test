@@ -43,6 +43,7 @@ type ServiceFactory struct {
 	SettingSvc                setting.Service
 	CargoManifestSvc          outbound.CargoManifestService
 	DraftMAWBSvc              outbound.DraftMAWBService
+	MasterStatusSvc           setting.MasterStatusService
 }
 
 func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *config.Config) *ServiceFactory {
@@ -55,6 +56,12 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// setting
 	settingSvc := setting.NewService(
 		repo.SettingRepo,
+		timeoutContext,
+	)
+
+	// MasterStatus
+	masterStatusSvc := setting.NewMasterStatusService(
+		repo.MasterStatusRepo,
 		timeoutContext,
 	)
 
@@ -155,10 +162,10 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	)
 
 	// Cargo Manifest
-	cargoManifestSvc := outbound.NewCargoManifestService(repo.CargoManifestRepo)
+	cargoManifestSvc := outbound.NewCargoManifestService(repo.CargoManifestRepo, masterStatusSvc)
 
 	// Draft MAWB
-	draftMAWBSvc := outbound.NewDraftMAWBService(repo.DraftMAWBRepo)
+	draftMAWBSvc := outbound.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
 
 	return &ServiceFactory{
 		AuthSvc:                   authSvc,
@@ -179,5 +186,6 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		SettingSvc:                settingSvc,
 		CargoManifestSvc:          cargoManifestSvc,
 		DraftMAWBSvc:              draftMAWBSvc,
+		MasterStatusSvc:           masterStatusSvc,
 	}
 }

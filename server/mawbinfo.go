@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"hpc-express-service/outbound"
+	"hpc-express-service/setting"
 	"log"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ type mawbInfoHandler struct {
 	s                mawbinfo.Service
 	cargoManifestSvc outbound.CargoManifestService
 	draftMAWBSvc     outbound.DraftMAWBService
+	statusSvc        setting.MasterStatusService
 }
 
 func (h *mawbInfoHandler) router() chi.Router {
@@ -145,21 +147,40 @@ func (h *mawbInfoHandler) sendCargoManifestToCustomer(w http.ResponseWriter, r *
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "AwaitingCustomer")
+	// เปลี่ยนเป็น "CM_AwaitingCustomer"
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CM_AwaitingCustomer", "cargo_manifest")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CM_AwaitingCustomer' not found")))
+		return
+	}
+	err = h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
 	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest sent to customer for confirmation"))
 }
-
 func (h *mawbInfoHandler) customerConfirmCargoManifest(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "CustomerConfirmed")
+	// เปลี่ยนเป็น "CM_CustomerConfirmed"
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CM_CustomerConfirmed", "cargo_manifest")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CM_CustomerConfirmed' not found")))
+		return
+	}
+	err = h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -173,7 +194,17 @@ func (h *mawbInfoHandler) customerRejectCargoManifest(w http.ResponseWriter, r *
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "CustomerRejected")
+	// เปลี่ยนเป็น "CM_CustomerRejected"
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CM_CustomerRejected", "cargo_manifest")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CM_CustomerRejected' not found")))
+		return
+	}
+	err = h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -187,8 +218,17 @@ func (h *mawbInfoHandler) confirmCargoManifest(w http.ResponseWriter, r *http.Re
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-
-	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "Confirmed")
+	// เปลี่ยนเป็น "CM_Confirmed"
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CM_Confirmed", "cargo_manifest")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CM_Confirmed' not found")))
+		return
+	}
+	err = h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -202,15 +242,23 @@ func (h *mawbInfoHandler) rejectCargoManifest(w http.ResponseWriter, r *http.Req
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-
-	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "Rejected")
+	// เปลี่ยนเป็น "CM_Rejected"
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CM_Rejected", "cargo_manifest")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CM_Rejected' not found")))
+		return
+	}
+	err = h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
 	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest rejected successfully"))
 }
-
 func (h *mawbInfoHandler) printCargoManifest(w http.ResponseWriter, r *http.Request) {
 	// PDF generation logic goes here
 	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
@@ -316,7 +364,16 @@ func (h *mawbInfoHandler) sendDraftMAWBToCustomer(w http.ResponseWriter, r *http
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "AwaitingCustomer")
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "AwaitingCustomer", "draft_mawb")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'AwaitingCustomer' not found")))
+		return
+	}
+	err = h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -330,7 +387,16 @@ func (h *mawbInfoHandler) customerConfirmDraftMAWB(w http.ResponseWriter, r *htt
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "CustomerConfirmed")
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CustomerConfirmed", "draft_mawb")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CustomerConfirmed' not found")))
+		return
+	}
+	err = h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -344,7 +410,16 @@ func (h *mawbInfoHandler) customerRejectDraftMAWB(w http.ResponseWriter, r *http
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "CustomerRejected")
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "CustomerRejected", "draft_mawb")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'CustomerRejected' not found")))
+		return
+	}
+	err = h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -357,7 +432,16 @@ func (h *mawbInfoHandler) confirmDraftMAWB(w http.ResponseWriter, r *http.Reques
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "Confirmed")
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "Confirmed", "draft_mawb")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'Confirmed' not found")))
+		return
+	}
+	err = h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -371,7 +455,16 @@ func (h *mawbInfoHandler) rejectDraftMAWB(w http.ResponseWriter, r *http.Request
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
 		return
 	}
-	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "Rejected")
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "Rejected", "draft_mawb")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'Rejected' not found")))
+		return
+	}
+	err = h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, status.UUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return

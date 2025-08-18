@@ -40,6 +40,7 @@ type RepositoryFactory struct {
 	SettingRepo                   setting.Repository
 	CargoManifestRepo             outbound.CargoManifestRepository
 	DraftMAWBRepo                 outbound.DraftMAWBRepository
+	MasterStatusRepo              setting.MasterStatusRepository
 }
 
 func NewRepositoryFactory() *RepositoryFactory {
@@ -64,5 +65,6 @@ func NewRepositoryFactory() *RepositoryFactory {
 		SettingRepo:                   setting.NewRepository(timeoutContext),
 		CargoManifestRepo:             outbound.NewCargoManifestRepository(),
 		DraftMAWBRepo:                 outbound.NewDraftMAWBRepository(),
+		MasterStatusRepo:              setting.NewMasterStatusRepository(),
 	}
 }

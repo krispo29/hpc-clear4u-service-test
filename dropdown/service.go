@@ -9,6 +9,7 @@ type Service interface {
 	GetServiceTypes(ctx context.Context) ([]DropdownItem, error)
 	GetShippingTypes(ctx context.Context) ([]DropdownItem, error)
 	GetAirlineLogos(ctx context.Context) ([]AirlineLogoItem, error)
+	GetMasterStatusesByType(ctx context.Context, statusType string) ([]DropdownItem, error)
 }
 
 type DropdownItem struct {
@@ -81,4 +82,24 @@ func (s *service) GetAirlineLogos(ctx context.Context) ([]AirlineLogoItem, error
 	}
 
 	return airlineLogos, nil
+}
+
+func (s *service) GetMasterStatusesByType(ctx context.Context, statusType string) ([]DropdownItem, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	statuses, err := s.repo.GetMasterStatusesByType(ctx, statusType)
+	if err != nil {
+		return nil, err
+	}
+
+	dropdownItems := make([]DropdownItem, len(statuses))
+	for i, status := range statuses {
+		dropdownItems[i] = DropdownItem{
+			Value: status.UUID,
+			Text:  status.Name,
+		}
+	}
+
+	return dropdownItems, nil
 }

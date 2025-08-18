@@ -3,21 +3,23 @@ package outbound
 import (
 	"context"
 	"fmt"
+	"hpc-express-service/setting"
 )
 
 type CargoManifestService interface {
 	GetCargoManifestByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
 	CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
-	UpdateCargoManifestStatus(ctx context.Context, mawbUUID, status string) error
+	UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error
 }
 
 type cargoManifestService struct {
-	repo CargoManifestRepository
+	repo      CargoManifestRepository
+	statusSvc setting.MasterStatusService
 }
 
-func NewCargoManifestService(repo CargoManifestRepository) CargoManifestService {
-	return &cargoManifestService{repo: repo}
+func NewCargoManifestService(repo CargoManifestRepository, statusSvc setting.MasterStatusService) CargoManifestService {
+	return &cargoManifestService{repo: repo, statusSvc: statusSvc}
 }
 
 func (s *cargoManifestService) GetCargoManifestByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
@@ -37,7 +39,16 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 	if existing != nil {
 		return nil, fmt.Errorf("cargo manifest already exists for this MAWB")
 	}
-	manifest.Status = "Draft"
+
+	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "cargo_manifest")
+	if err != nil {
+		return nil, fmt.Errorf("error getting default status: %w", err)
+	}
+	if defaultStatus == nil {
+		return nil, fmt.Errorf("no default status found for cargo_manifest")
+	}
+	manifest.StatusUUID = defaultStatus.UUID
+
 	return s.repo.Create(ctx, manifest)
 }
 
@@ -56,11 +67,10 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
-	manifest.Status = "Draft"
 	return s.repo.Update(ctx, manifest)
 }
 
-func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, status string) error {
+func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error {
 	// Get the existing manifest
 	manifest, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
@@ -71,7 +81,7 @@ func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, ma
 	}
 
 	// Update the status
-	manifest.Status = status
+	manifest.StatusUUID = statusUUID
 	_, err = s.repo.Update(ctx, manifest)
 	return err
 }

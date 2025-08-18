@@ -27,9 +27,13 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	db := ctx.Value("postgreSQLConn").(orm.DB)
 
 	manifest := &CargoManifest{}
-	if err := db.Model(manifest).
-		Where("mawb_info_uuid = ?", mawbUUID).
-		Select(); err != nil {
+	err := db.Model(manifest).
+		Column("cargo_manifest.*", "Status.name as status").
+		Join("JOIN master_status AS Status ON Status.uuid = cargo_manifest.status_uuid").
+		Where("cargo_manifest.mawb_info_uuid = ?", mawbUUID).
+		Select()
+
+	if err != nil {
 		if err == pg.ErrNoRows {
 			return nil, nil
 		}

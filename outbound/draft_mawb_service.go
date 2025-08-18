@@ -2,6 +2,8 @@ package outbound
 
 import (
 	"context"
+	"fmt"
+	"hpc-express-service/setting"
 )
 
 type DraftMAWBService interface {
@@ -9,7 +11,7 @@ type DraftMAWBService interface {
 	GetDraftMAWBByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
 	CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
 	UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
-	UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error
+	UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error
 	GetAllDraftMAWB(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CancelDraftMAWB(ctx context.Context, mawbUUID string) error
 	UndoCancelDraftMAWB(ctx context.Context, mawbUUID string) error
@@ -18,11 +20,12 @@ type DraftMAWBService interface {
 }
 
 type draftMAWBService struct {
-	repo DraftMAWBRepository
+	repo      DraftMAWBRepository
+	statusSvc setting.MasterStatusService
 }
 
-func NewDraftMAWBService(repo DraftMAWBRepository) DraftMAWBService {
-	return &draftMAWBService{repo: repo}
+func NewDraftMAWBService(repo DraftMAWBRepository, statusSvc setting.MasterStatusService) DraftMAWBService {
+	return &draftMAWBService{repo: repo, statusSvc: statusSvc}
 }
 
 func (s *draftMAWBService) GetDraftMAWBByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error) {
@@ -34,15 +37,21 @@ func (s *draftMAWBService) GetDraftMAWBByUUID(ctx context.Context, uuid string) 
 }
 
 func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	draftMAWB.Status = "Draft"
+	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "draft_mawb")
+	if err != nil {
+		return nil, fmt.Errorf("error getting default status: %w", err)
+	}
+	if defaultStatus == nil {
+		return nil, fmt.Errorf("no default status found for draft_mawb")
+	}
+	draftMAWB.StatusUUID = defaultStatus.UUID
 	return s.repo.CreateWithRelations(ctx, draftMAWB, items, charges)
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	draftMAWB.Status = "Draft"
 	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
-func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error {
+func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error {
 
 	draft, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
@@ -51,7 +60,7 @@ func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, 
 	if draft == nil {
 		return nil // Or a not found error
 	}
-	return s.repo.UpdateStatus(ctx, draft.UUID, status)
+	return s.repo.UpdateStatus(ctx, draft.UUID, statusUUID)
 }
 
 func (s *draftMAWBService) GetAllDraftMAWB(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error) {
@@ -59,11 +68,25 @@ func (s *draftMAWBService) GetAllDraftMAWB(ctx context.Context, startDate, endDa
 }
 
 func (s *draftMAWBService) CancelDraftMAWB(ctx context.Context, mawbUUID string) error {
-	return s.repo.CancelByMAWBUUID(ctx, mawbUUID)
+	cancelledStatus, err := s.statusSvc.GetStatusByNameAndType(ctx, "Cancelled", "draft_mawb")
+	if err != nil {
+		return err
+	}
+	if cancelledStatus == nil {
+		return fmt.Errorf("status 'Cancelled' not found")
+	}
+	return s.UpdateDraftMAWBStatus(ctx, mawbUUID, cancelledStatus.UUID)
 }
 
 func (s *draftMAWBService) UndoCancelDraftMAWB(ctx context.Context, mawbUUID string) error {
-	return s.repo.UndoCancelByMAWBUUID(ctx, mawbUUID)
+	draftStatus, err := s.statusSvc.GetStatusByNameAndType(ctx, "Draft", "draft_mawb")
+	if err != nil {
+		return err
+	}
+	if draftStatus == nil {
+		return fmt.Errorf("status 'Draft' not found")
+	}
+	return s.UpdateDraftMAWBStatus(ctx, mawbUUID, draftStatus.UUID)
 }
 
 func (s *draftMAWBService) GetDraftMAWBWithRelations(ctx context.Context, uuid string) (*DraftMAWBWithRelations, error) {
