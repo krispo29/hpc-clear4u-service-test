@@ -64,7 +64,7 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 		Column("draft_mawb.*").
 		ColumnExpr("ms.name AS status").
 		Join("LEFT JOIN master_status AS ms ON ms.uuid = draft_mawb.status_uuid").
-		Where("uuid = ?", uuid).
+		Where("draft_mawb.uuid = ?", uuid).
 		Select()
 
 	if err != nil {
