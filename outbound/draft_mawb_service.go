@@ -36,28 +36,30 @@ func (s *draftMAWBService) GetDraftMAWBByUUID(ctx context.Context, uuid string) 
 	return s.repo.GetByUUID(ctx, uuid)
 }
 
-func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+// setDefaultStatus sets the status of the draft MAWB to the default 'Draft' status.
+func (s *draftMAWBService) setDefaultStatus(ctx context.Context, draftMAWB *DraftMAWB) error {
 	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "draft_mawb")
 	if err != nil {
-		return nil, fmt.Errorf("error getting default status: %w", err)
+		return fmt.Errorf("error getting default status: %w", err)
 	}
 	if defaultStatus == nil {
-		return nil, fmt.Errorf("no default status found for draft_mawb")
+		return fmt.Errorf("no default status found for draft_mawb")
 	}
 	draftMAWB.StatusUUID = defaultStatus.UUID
+	return nil
+}
+
+func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	if err := s.setDefaultStatus(ctx, draftMAWB); err != nil {
+		return nil, err
+	}
 	return s.repo.CreateWithRelations(ctx, draftMAWB, items, charges)
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	// Per user request, always set status to default 'Draft' on update
-	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "draft_mawb")
-	if err != nil {
-		return nil, fmt.Errorf("error getting default status: %w", err)
+	if err := s.setDefaultStatus(ctx, draftMAWB); err != nil {
+		return nil, err
 	}
-	if defaultStatus == nil {
-		return nil, fmt.Errorf("no default status found for draft_mawb")
-	}
-	draftMAWB.StatusUUID = defaultStatus.UUID
 	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error {

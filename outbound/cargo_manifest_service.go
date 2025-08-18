@@ -27,6 +27,19 @@ func (s *cargoManifestService) GetCargoManifestByMAWBUUID(ctx context.Context, m
 	return s.repo.GetByMAWBUUID(ctx, mawbUUID)
 }
 
+// setDefaultStatus sets the status of the manifest to the default 'Draft' status.
+func (s *cargoManifestService) setDefaultStatus(ctx context.Context, manifest *CargoManifest) error {
+	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "cargo_manifest")
+	if err != nil {
+		return fmt.Errorf("error getting default status: %w", err)
+	}
+	if defaultStatus == nil {
+		return fmt.Errorf("no default status found for cargo_manifest")
+	}
+	manifest.StatusUUID = defaultStatus.UUID
+	return nil
+}
+
 func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
 	// Add validation or transformation logic here.
 	// For example, ensuring MAWBInfoUUID is present and valid.
@@ -40,14 +53,9 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 		return nil, fmt.Errorf("cargo manifest already exists for this MAWB")
 	}
 
-	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "cargo_manifest")
-	if err != nil {
-		return nil, fmt.Errorf("error getting default status: %w", err)
+	if err := s.setDefaultStatus(ctx, manifest); err != nil {
+		return nil, err
 	}
-	if defaultStatus == nil {
-		return nil, fmt.Errorf("no default status found for cargo_manifest")
-	}
-	manifest.StatusUUID = defaultStatus.UUID
 
 	return s.repo.Create(ctx, manifest)
 }
@@ -68,15 +76,9 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
 
-	// Per user request, always set status to default 'Draft' on update
-	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "cargo_manifest")
-	if err != nil {
-		return nil, fmt.Errorf("error getting default status: %w", err)
+	if err := s.setDefaultStatus(ctx, manifest); err != nil {
+		return nil, err
 	}
-	if defaultStatus == nil {
-		return nil, fmt.Errorf("no default status found for cargo_manifest")
-	}
-	manifest.StatusUUID = defaultStatus.UUID
 
 	return s.repo.Update(ctx, manifest)
 }
