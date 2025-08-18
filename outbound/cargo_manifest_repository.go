@@ -22,12 +22,14 @@ func NewCargoManifestRepository() CargoManifestRepository {
 	return &cargoManifestRepository{}
 }
 
-// ใช้ orm.DB แทน *pg.DB เพื่อรองรับทั้ง *pg.DB และ *pg.Tx
 func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
-	db := ctx.Value("postgreSQLConn").(orm.DB)
+	db, err := getQer(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	manifest := &CargoManifest{}
-	err := db.Model(manifest).
+	err = db.Model(manifest).
 		Column("cargo_manifest.*").
 		ColumnExpr("ms.name AS status").
 		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
@@ -52,67 +54,10 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 }
 
 func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	rootDB := ctx.Value("postgreSQLConn").(orm.DB)
-
-	// ถ้ามี Tx อยู่แล้วให้ใช้ต่อ
-	if tx, ok := rootDB.(*pg.Tx); ok {
-		return r.createInTx(ctx, tx, manifest)
+	db, err := getQer(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	// ถ้าเป็น *pg.DB ให้เริ่ม Tx ใหม่
-	if pgdb, ok := rootDB.(*pg.DB); ok {
-		tx, err := pgdb.Begin()
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Close() // จะ rollback อัตโนมัติถ้ายังไม่ commit
-
-		txCtx := context.WithValue(ctx, "postgreSQLConn", tx)
-		out, err := r.createInTx(txCtx, tx, manifest)
-		if err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-
-	return nil, fmt.Errorf("invalid DB type in context")
-}
-
-func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	rootDB := ctx.Value("postgreSQLConn").(orm.DB)
-
-	// ถ้ามี Tx อยู่แล้วให้ใช้ต่อ
-	if tx, ok := rootDB.(*pg.Tx); ok {
-		return r.updateInTx(ctx, tx, manifest)
-	}
-
-	// ถ้าเป็น *pg.DB ให้เริ่ม Tx ใหม่
-	if pgdb, ok := rootDB.(*pg.DB); ok {
-		tx, err := pgdb.Begin()
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Close() // จะ rollback อัตโนมัติถ้ายังไม่ commit
-
-		txCtx := context.WithValue(ctx, "postgreSQLConn", tx)
-		out, err := r.updateInTx(txCtx, tx, manifest)
-		if err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-
-	return nil, fmt.Errorf("invalid DB type in context")
-}
-
-// ฟังก์ชันสร้าง manifest ใหม่ภายใน Tx
-func (r *cargoManifestRepository) createInTx(ctx context.Context, db orm.DB, manifest *CargoManifest) (*CargoManifest, error) {
 	now := time.Now()
 
 	// สร้าง manifest ใหม่
@@ -138,8 +83,11 @@ func (r *cargoManifestRepository) createInTx(ctx context.Context, db orm.DB, man
 	return r.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
 }
 
-// ฟังก์ชันอัปเดต manifest ภายใน Tx
-func (r *cargoManifestRepository) updateInTx(ctx context.Context, db orm.DB, manifest *CargoManifest) (*CargoManifest, error) {
+func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+	db, err := getQer(ctx)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 
 	// อัปเดต manifest เดิม
