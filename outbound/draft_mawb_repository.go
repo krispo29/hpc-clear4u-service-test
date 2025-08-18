@@ -37,8 +37,9 @@ func (r *draftMAWBRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string
 
 	draft := &DraftMAWB{}
 	err = q.Model(draft).
-		Column("draft_mawb.*", "ms.name as status").
-		Join("JOIN master_status AS ms ON ms.uuid = draft_mawb.status_uuid").
+		Column("draft_mawb.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = draft_mawb.status_uuid").
 		Where("mawb_info_uuid = ?", mawbUUID).
 		Select()
 
@@ -60,8 +61,9 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 
 	draft := &DraftMAWB{}
 	err = q.Model(draft).
-		Column("draft_mawb.*", "ms.name as status").
-		Join("JOIN master_status AS ms ON ms.uuid = draft_mawb.status_uuid").
+		Column("draft_mawb.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = draft_mawb.status_uuid").
 		Where("uuid = ?", uuid).
 		Select()
 
