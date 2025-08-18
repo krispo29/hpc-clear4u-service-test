@@ -67,6 +67,17 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
+
+	// Per user request, always set status to default 'Draft' on update
+	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "cargo_manifest")
+	if err != nil {
+		return nil, fmt.Errorf("error getting default status: %w", err)
+	}
+	if defaultStatus == nil {
+		return nil, fmt.Errorf("no default status found for cargo_manifest")
+	}
+	manifest.StatusUUID = defaultStatus.UUID
+
 	return s.repo.Update(ctx, manifest)
 }
 

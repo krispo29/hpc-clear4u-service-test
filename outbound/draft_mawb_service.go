@@ -49,6 +49,15 @@ func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *Draft
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	// Per user request, always set status to default 'Draft' on update
+	defaultStatus, err := s.statusSvc.GetDefaultStatusByType(ctx, "draft_mawb")
+	if err != nil {
+		return nil, fmt.Errorf("error getting default status: %w", err)
+	}
+	if defaultStatus == nil {
+		return nil, fmt.Errorf("no default status found for draft_mawb")
+	}
+	draftMAWB.StatusUUID = defaultStatus.UUID
 	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error {
