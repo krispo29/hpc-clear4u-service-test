@@ -45,6 +45,9 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Get("/cargo-manifest", h.getCargoManifest)
 		r.Post("/cargo-manifest", h.createCargoManifest)
 		r.Put("/cargo-manifest", h.updateCargoManifest)
+		r.Post("/cargo-manifest/send-customer", h.sendCargoManifestToCustomer)
+		r.Post("/cargo-manifest/customer-confirm", h.customerConfirmCargoManifest)
+		r.Post("/cargo-manifest/customer-reject", h.customerRejectCargoManifest)
 		r.Post("/cargo-manifest/confirm", h.confirmCargoManifest)
 		r.Post("/cargo-manifest/reject", h.rejectCargoManifest)
 		r.Get("/cargo-manifest/print", h.printCargoManifest)
@@ -53,6 +56,9 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Get("/draft-mawb", h.getDraftMAWB)
 		r.Post("/draft-mawb", h.createDraftMAWB)
 		r.Put("/draft-mawb", h.updateDraftMAWB)
+		r.Post("/draft-mawb/send-customer", h.sendDraftMAWBToCustomer)
+		r.Post("/draft-mawb/customer-confirm", h.customerConfirmDraftMAWB)
+		r.Post("/draft-mawb/customer-reject", h.customerRejectDraftMAWB)
 		r.Post("/draft-mawb/confirm", h.confirmDraftMAWB)
 		r.Post("/draft-mawb/reject", h.rejectDraftMAWB)
 		r.Get("/draft-mawb/print", h.printDraftMAWB)
@@ -132,6 +138,47 @@ func (h *mawbInfoHandler) updateCargoManifest(w http.ResponseWriter, r *http.Req
 	}
 
 	render.Respond(w, r, SuccessResponse(result, "Cargo Manifest updated successfully"))
+}
+func (h *mawbInfoHandler) sendCargoManifestToCustomer(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "AwaitingCustomer")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest sent to customer for confirmation"))
+}
+
+func (h *mawbInfoHandler) customerConfirmCargoManifest(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "CustomerConfirmed")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest confirmed by customer"))
+}
+
+func (h *mawbInfoHandler) customerRejectCargoManifest(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.cargoManifestSvc.UpdateCargoManifestStatus(r.Context(), mawbUUID, "CustomerRejected")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest rejected by customer"))
 }
 
 func (h *mawbInfoHandler) confirmCargoManifest(w http.ResponseWriter, r *http.Request) {
@@ -263,7 +310,47 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 
 	render.Respond(w, r, SuccessResponse(map[string]string{"uuid": result.UUID}, "Draft MAWB updated successfully"))
 }
+func (h *mawbInfoHandler) sendDraftMAWBToCustomer(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "AwaitingCustomer")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Draft MAWB sent to customer for confirmation"))
+}
 
+func (h *mawbInfoHandler) customerConfirmDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "CustomerConfirmed")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Draft MAWB confirmed by customer"))
+}
+
+func (h *mawbInfoHandler) customerRejectDraftMAWB(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	err := h.draftMAWBSvc.UpdateDraftMAWBStatus(r.Context(), mawbUUID, "CustomerRejected")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Draft MAWB rejected by customer"))
+}
 func (h *mawbInfoHandler) confirmDraftMAWB(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {

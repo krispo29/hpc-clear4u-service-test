@@ -37,7 +37,7 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 	if existing != nil {
 		return nil, fmt.Errorf("cargo manifest already exists for this MAWB")
 	}
-
+	manifest.Status = "Draft"
 	return s.repo.Create(ctx, manifest)
 }
 
@@ -56,6 +56,7 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
+	manifest.Status = "Draft"
 	return s.repo.Update(ctx, manifest)
 }
 

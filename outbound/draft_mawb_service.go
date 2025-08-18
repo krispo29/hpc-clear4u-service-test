@@ -34,13 +34,16 @@ func (s *draftMAWBService) GetDraftMAWBByUUID(ctx context.Context, uuid string) 
 }
 
 func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	draftMAWB.Status = "Draft"
 	return s.repo.CreateWithRelations(ctx, draftMAWB, items, charges)
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	draftMAWB.Status = "Draft"
 	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, status string) error {
+
 	draft, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
 		return err
