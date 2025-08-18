@@ -13,8 +13,6 @@ import (
 type DraftMAWBRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error)
 	GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error)
-	Create(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
-	Update(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error)
 	UpdateStatus(ctx context.Context, uuid, statusUUID string) error
 	GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error)
 	CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error)
@@ -75,68 +73,6 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 	}
 
 	return draft, nil
-}
-
-// Create creates a new draft MAWB
-func (r *draftMAWBRepository) Create(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-
-	// First check if MAWB Info exists
-	var mawbInfoExists bool
-	_, err := db.QueryOne(pg.Scan(&mawbInfoExists),
-		"SELECT EXISTS(SELECT 1 FROM public.tbl_mawb_info WHERE uuid = ?)",
-		draftMAWB.MAWBInfoUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !mawbInfoExists {
-		// If MAWB Info doesn't exist, create a basic one
-		_, err = db.Exec(`
-			INSERT INTO public.tbl_mawb_info (uuid, chargeable_weight, date, mawb, service_type, shipping_type, created_at, updated_at) 
-			VALUES (?, 0, CURRENT_DATE, 'AUTO-GENERATED', 'cargo', 'air', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			ON CONFLICT (uuid) DO NOTHING`,
-			draftMAWB.MAWBInfoUUID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Create new record
-	draftMAWB.UUID = uuid.New().String()
-	draftMAWB.CreatedAt = time.Now()
-	draftMAWB.UpdatedAt = time.Now()
-	_, err = db.Model(draftMAWB).Insert()
-	if err != nil {
-		return nil, err
-	}
-
-	return r.GetByUUID(ctx, draftMAWB.UUID)
-}
-
-// Update updates an existing draft MAWB
-func (r *draftMAWBRepository) Update(ctx context.Context, draftMAWB *DraftMAWB) (*DraftMAWB, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-
-	// Get existing record to preserve created_at
-	existing, err := r.GetByUUID(ctx, draftMAWB.UUID)
-	if err != nil {
-		return nil, err
-	}
-	if existing == nil {
-		return nil, pg.ErrNoRows
-	}
-
-	// Preserve created_at and update updated_at
-	draftMAWB.CreatedAt = existing.CreatedAt
-	draftMAWB.UpdatedAt = time.Now()
-
-	_, err = db.Model(draftMAWB).WherePK().Update()
-	if err != nil {
-		return nil, err
-	}
-
-	return r.GetByUUID(ctx, draftMAWB.UUID)
 }
 
 // UpdateStatus updates the status of a draft MAWB.
