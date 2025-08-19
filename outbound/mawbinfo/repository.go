@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v9/orm"
 )
 
 type Repository interface {
@@ -71,7 +72,9 @@ func (r repository) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequ
 }
 
 func (r repository) createTableIfNotExists(ctx context.Context, db orm.DB) error {
-	sqlStr := `CREATE TABLE IF NOT EXISTS tbl_mawb_info (
+	// First create the table if it doesn't exist
+	sqlStr := `
+		CREATE TABLE IF NOT EXISTS tbl_mawb_info (
 			uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			chargeable_weight DECIMAL(10,2) NOT NULL,
 			date DATE NOT NULL,
@@ -81,8 +84,26 @@ func (r repository) createTableIfNotExists(ctx context.Context, db orm.DB) error
 			attachments JSONB,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`
-	_, err := db.Exec(sqlStr)
+		)
+	`
+	if _, err := db.Exec(sqlStr); err != nil {
+		return err
+	}
+
+	// Add attachments column if it doesn't exist (for existing tables)
+	alterSQL := `
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'tbl_mawb_info'
+				AND column_name = 'attachments'
+			) THEN
+				ALTER TABLE tbl_mawb_info ADD COLUMN attachments JSONB;
+			END IF;
+		END $$;
+	`
+	_, err := db.Exec(alterSQL)
 	return err
 }
 
