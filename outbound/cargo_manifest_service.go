@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hpc-express-service/setting"
+	"hpc-express-service/utils"
 )
 
 type CargoManifestService interface {
@@ -41,7 +42,7 @@ func (s *cargoManifestService) setDefaultStatus(ctx context.Context, manifest *C
 }
 
 func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 }
 
 func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 }
 
 func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
