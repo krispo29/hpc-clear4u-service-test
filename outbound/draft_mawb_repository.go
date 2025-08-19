@@ -3,6 +3,7 @@ package outbound
 import (
 	"context"
 	"fmt"
+	"hpc-express-service/common"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ func NewDraftMAWBRepository() DraftMAWBRepository {
 }
 
 func (r *draftMAWBRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string) (*DraftMAWB, error) {
-	q, err := getQer(ctx)
+	q, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (r *draftMAWBRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string
 }
 
 func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*DraftMAWB, error) {
-	q, err := getQer(ctx)
+	q, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 
 // UpdateStatus updates the status of a draft MAWB.
 func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, statusUUID string) error {
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,7 +91,7 @@ func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, statusUUID
 
 // GetAll retrieves all draft MAWB records with customer information and date filtering
 func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error) {
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 
 // CreateWithRelations creates a new draft MAWB with its items and charges within a transaction.
 func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 
 // UpdateWithRelations updates an existing draft MAWB with its items and charges within a transaction.
 func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +328,7 @@ func (r *draftMAWBRepository) GetWithRelations(ctx context.Context, uuid string)
 		return nil, err
 	}
 
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +372,7 @@ func (r *draftMAWBRepository) GetWithRelationsByMAWBUUID(ctx context.Context, ma
 		return nil, err
 	}
 
-	db, err := getQer(ctx)
+	db, err := common.GetQer(ctx)
 	if err != nil {
 		return nil, err
 	}

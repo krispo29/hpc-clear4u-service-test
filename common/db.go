@@ -1,4 +1,4 @@
-package outbound
+package common
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"github.com/go-pg/pg/v9/orm"
 )
 
-// qer สามารถเป็นได้ทั้ง *pg.DB และ *pg.Tx
-type qer interface {
+// Qer can be either a *pg.DB or a *pg.Tx
+type Qer interface {
 	Model(...interface{}) *orm.Query
 	Query(model, query interface{}, params ...interface{}) (orm.Result, error)
 	QueryOne(model, query interface{}, params ...interface{}) (orm.Result, error)
@@ -17,7 +17,7 @@ type qer interface {
 	ExecOne(query interface{}, params ...interface{}) (orm.Result, error)
 }
 
-func getQer(ctx context.Context) (qer, error) {
+func GetQer(ctx context.Context) (Qer, error) {
 	v := ctx.Value("postgreSQLConn")
 	switch db := v.(type) {
 	case *pg.DB:
