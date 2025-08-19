@@ -14,10 +14,10 @@ import (
 )
 
 type Repository interface {
-	CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequest, chargeableWeight float64) (*MawbInfoResponse, error)
+	CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequest, chargeableWeight string) (*MawbInfoResponse, error)
 	GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResponse, error)
 	GetAllMawbInfo(ctx context.Context, startDate, endDate string) ([]*MawbInfoResponse, error)
-	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight float64, attachments []AttachmentInfo) (*MawbInfoResponse, error)
+	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight string, attachments []AttachmentInfo) (*MawbInfoResponse, error)
 	DeleteMawbInfo(ctx context.Context, uuid string) error
 	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (*AttachmentInfo, error)
 	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
@@ -35,7 +35,7 @@ func NewRepository(
 	}
 }
 
-func (r repository) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequest, chargeableWeight float64) (*MawbInfoResponse, error) {
+func (r repository) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequest, chargeableWeight string) (*MawbInfoResponse, error) {
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func (r repository) GetAllMawbInfo(ctx context.Context, startDate, endDate strin
 	return responses, nil
 }
 
-func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight float64, attachments []AttachmentInfo) (*MawbInfoResponse, error) {
+func (r repository) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight string, attachments []AttachmentInfo) (*MawbInfoResponse, error) {
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
