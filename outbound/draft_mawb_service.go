@@ -3,6 +3,7 @@ package outbound
 import (
 	"context"
 	"fmt"
+	"hpc-express-service/common"
 	"hpc-express-service/setting"
 )
 
@@ -50,7 +51,7 @@ func (s *draftMAWBService) setDefaultStatus(ctx context.Context, draftMAWB *Draf
 }
 
 func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *Draft
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *Draft
 	return result, nil
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return err
 	}

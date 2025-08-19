@@ -3,6 +3,7 @@ package outbound
 import (
 	"context"
 	"fmt"
+	"hpc-express-service/common"
 	"hpc-express-service/setting"
 )
 
@@ -41,7 +42,7 @@ func (s *cargoManifestService) setDefaultStatus(ctx context.Context, manifest *C
 }
 
 func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 }
 
 func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +90,7 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
-
-	if err := s.setDefaultStatus(txCtx, manifest); err != nil {
-		return nil, err
-	}
+	manifest.StatusUUID = existing.StatusUUID
 
 	result, err := s.repo.Update(txCtx, manifest)
 	if err != nil {
@@ -106,7 +104,7 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 }
 
 func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error {
-	tx, txCtx, err := BeginTx(ctx)
+	tx, txCtx, err := common.BeginTx(ctx)
 	if err != nil {
 		return err
 	}

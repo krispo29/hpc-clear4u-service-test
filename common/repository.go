@@ -3,8 +3,6 @@ package common
 import (
 	"context"
 	"time"
-
-	"github.com/go-pg/pg/v9"
 )
 
 type Repository interface {
@@ -25,8 +23,11 @@ func NewRepository(
 }
 
 func (r repository) GetAllExchangeRates(ctx context.Context) ([]*GetExchangeRateModel, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
+	db, err := GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	sqlStr := `
 		SELECT 
 			cxr."id",
@@ -47,7 +48,7 @@ func (r repository) GetAllExchangeRates(ctx context.Context) ([]*GetExchangeRate
 	`
 
 	var list []*GetExchangeRateModel
-	_, err := db.QueryContext(ctx, &list, sqlStr)
+	_, err = db.Query(&list, sqlStr)
 
 	if err != nil {
 		return list, err
@@ -57,8 +58,10 @@ func (r repository) GetAllExchangeRates(ctx context.Context) ([]*GetExchangeRate
 }
 
 func (r repository) GetAllConvertTemplates(ctx context.Context, category string) ([]*GetAllConvertTemplateModel, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
+	db, err := GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sqlStr := `select code, "name", "type" from master_convert_templates where deleted_at is null`
 
 	values := []interface{}{}
@@ -71,7 +74,7 @@ func (r repository) GetAllConvertTemplates(ctx context.Context, category string)
 	}
 
 	var list []*GetAllConvertTemplateModel
-	_, err := db.QueryContext(ctx, &list, sqlStr, values...)
+	_, err = db.Query(&list, sqlStr, values...)
 
 	if err != nil {
 		return list, err
