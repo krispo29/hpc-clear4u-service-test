@@ -137,7 +137,7 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 	}
 	query += " ORDER BY dm.created_at DESC"
 
-	_, err := db.Query(&items, query, args...)
+	_, err = db.Query(&items, query, args...)
 	if err != nil {
 		return nil, err
 	}

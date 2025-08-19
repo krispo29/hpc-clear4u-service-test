@@ -8,12 +8,7 @@ import (
 	"github.com/go-pg/pg/v9/orm"
 )
 
-// qer สามารถเป็นได้ทั้ง *pg.DB และ *pg.Tx
-type qer interface {
-	Model(...interface{}) *orm.Query
-}
-
-func getQer(ctx context.Context) (qer, error) {
+func getQer(ctx context.Context) (orm.DB, error) {
 	v := ctx.Value("postgreSQLConn")
 	switch db := v.(type) {
 	case *pg.DB:

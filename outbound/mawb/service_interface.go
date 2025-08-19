@@ -31,14 +31,14 @@ type OutboundMawbService interface {
 type service struct {
 	selfRepo       OutboundMawbRepository
 	contextTimeout time.Duration
-	gcsClient      *gcs.Client
+	gcsClient      gcs.Service
 	conf           *config.Config
 }
 
 func NewOutboundMawbService(
 	selfRepo OutboundMawbRepository,
 	timeout time.Duration,
-	gcsClient *gcs.Client,
+	gcsClient gcs.Service,
 	conf *config.Config,
 ) OutboundMawbService {
 	return &service{
