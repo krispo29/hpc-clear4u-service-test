@@ -11,20 +11,26 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+type Service interface {
+	UploadToGCS(ctx context.Context, r io.Reader, objectName string, public bool, contentType string) (string, error)
+	GetPublicURL(objectName string) string
+	DeleteImage(objectName string) error
+}
+
 type Client struct {
 	projectID  string
 	bucketName string
 	client     *storage.Client
 }
 
-func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, name string, public bool, contentType string) (*storage.ObjectHandle, *storage.ObjectAttrs, error) {
+func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, objectName string, public bool, contentType string) (string, error) {
 	bh := gcs.client.Bucket(gcs.bucketName)
 	// Next check if the bucket exists
 	if _, err := bh.Attrs(ctx); err != nil {
-		return nil, nil, err
+		return "", err
 	}
 
-	obj := bh.Object(name)
+	obj := bh.Object(objectName)
 	w := obj.NewWriter(ctx)
 
 	// Set the Content-Type header
@@ -33,18 +39,22 @@ func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, name string, pu
 	}
 
 	if _, err := io.Copy(w, r); err != nil {
-		return nil, nil, err
+		return "", err
 	}
 	if err := w.Close(); err != nil {
-		return nil, nil, err
+		return "", err
 	}
 	if public {
 		if err := obj.ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
-			return nil, nil, err
+			return "", err
 		}
 	}
-	attrs, err := obj.Attrs(ctx)
-	return obj, attrs, err
+	// Return the public URL
+	return gcs.GetPublicURL(objectName), nil
+}
+
+func (gcs *Client) GetPublicURL(objectName string) string {
+	return fmt.Sprintf("https://storage.googleapis.com/%s/%s", gcs.bucketName, objectName)
 }
 
 // readFile reads the named file in Google Cloud Storage.
