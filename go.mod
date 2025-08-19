@@ -19,7 +19,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/satori/go.uuid v1.2.0
 	github.com/xuri/excelize/v2 v2.9.0
-	golang.org/x/crypto v0.31.0
+	golang.org/x/crypto v0.30.0
 )
 
 require (
@@ -45,7 +45,6 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-pg/pg/v10 v10.14.0 // indirect
 	github.com/go-pg/zerochecker v0.2.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -69,12 +68,9 @@ require (
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.1.15 // indirect
-	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/vmihailenco/bufpool v0.1.11 // indirect
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.3.4 // indirect
-	github.com/vmihailenco/tagparser v0.1.2 // indirect
-	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	github.com/vmihailenco/tagparser v0.1.1 // indirect
 	github.com/xuri/efp v0.0.0-20240408161823-9ad904a10d6d // indirect
 	github.com/xuri/nfp v0.0.0-20240318013403-ab9948c2c4a7 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -101,5 +97,5 @@ require (
 	google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
-	mellium.im/sasl v0.3.1 // indirect
+	mellium.im/sasl v0.2.1 // indirect
 )

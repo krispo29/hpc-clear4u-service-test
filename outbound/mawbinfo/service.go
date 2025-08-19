@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"hpc-express-service/gcs"
 	"hpc-express-service/utils"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,34 +25,29 @@ type Service interface {
 
 type service struct {
 	selfRepo       Repository
-	gcsService     gcs.Service
 	contextTimeout time.Duration
 }
 
 func NewService(
 	selfRepo Repository,
-	gcsService gcs.Service,
 	timeout time.Duration,
 ) Service {
 	return &service{
 		selfRepo:       selfRepo,
-		gcsService:     gcsService,
 		contextTimeout: timeout,
 	}
 }
 
 func (s *service) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoRequest) (*MawbInfoResponse, error) {
-	tx, txCtx, err := utils.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
 
+	// Validate input data
 	if err := s.validateInput(data); err != nil {
 		return nil, err
 	}
 
-	exists, err := s.selfRepo.IsMawbExists(txCtx, data.Mawb, "")
+	exists, err := s.selfRepo.IsMawbExists(ctx, data.Mawb, "")
 	if err != nil {
 		return nil, err
 	}
@@ -59,42 +55,158 @@ func (s *service) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoReques
 		return nil, errors.New("mawb already exists")
 	}
 
+	// Convert chargeableWeight string to float64 with 2 decimal places
 	chargeableWeight, err := s.convertChargeableWeight(data.ChargeableWeight)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate date format
 	if err := s.validateDateFormat(data.Date); err != nil {
 		return nil, err
 	}
 
-	result, err := s.selfRepo.CreateMawbInfo(txCtx, data, chargeableWeight)
+	// Call repository to create MAWB info
+	result, err := s.selfRepo.CreateMawbInfo(ctx, data, chargeableWeight)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
-func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest) (*MawbInfoResponse, error) {
-	tx, txCtx, err := utils.BeginTx(ctx)
-	if err != nil {
-		return nil, err
+// validateInput validates all required fields
+func (s *service) validateInput(data *CreateMawbInfoRequest) error {
+	if data == nil {
+		return errors.New("request data cannot be nil")
 	}
-	defer tx.Rollback()
+
+	if strings.TrimSpace(data.ChargeableWeight) == "" {
+		return errors.New("chargeableWeight is required")
+	}
+
+	if strings.TrimSpace(data.Date) == "" {
+		return errors.New("date is required")
+	}
+
+	if strings.TrimSpace(data.Mawb) == "" {
+		return errors.New("mawb is required")
+	}
+
+	if strings.TrimSpace(data.ServiceType) == "" {
+		return errors.New("serviceType is required")
+	}
+
+	if strings.TrimSpace(data.ShippingType) == "" {
+		return errors.New("shippingType is required")
+	}
+
+	return nil
+}
+
+func (s *service) IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	return s.selfRepo.IsMawbExists(ctx, mawb, uuid)
+}
+
+// convertChargeableWeight converts string to float64 with exactly 2 decimal places
+func (s *service) convertChargeableWeight(weightStr string) (float64, error) {
+	// Trim whitespace
+	weightStr = strings.TrimSpace(weightStr)
+
+	if weightStr == "" {
+		return 0, errors.New("chargeableWeight cannot be empty")
+	}
+
+	// Parse string to float64
+	weight, err := strconv.ParseFloat(weightStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid chargeableWeight format: %s", weightStr)
+	}
+
+	// Check for negative values
+	if weight < 0 {
+		return 0, errors.New("chargeableWeight cannot be negative")
+	}
+
+	// Round to 2 decimal places
+	weight = math.Round(weight*100) / 100
+
+	return weight, nil
+}
+
+// validateDateFormat validates date format YYYY-MM-DD
+func (s *service) validateDateFormat(dateStr string) error {
+	dateStr = strings.TrimSpace(dateStr)
+
+	if dateStr == "" {
+		return errors.New("date cannot be empty")
+	}
+
+	// Parse date in YYYY-MM-DD format
+	_, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %s", dateStr)
+	}
+
+	return nil
+}
+func (s *service) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
 
 	if strings.TrimSpace(uuid) == "" {
 		return nil, errors.New("uuid is required")
 	}
 
+	result, err := s.selfRepo.GetMawbInfo(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *service) GetAllMawbInfo(ctx context.Context, startDate, endDate string) ([]*MawbInfoResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	// Validate date formats if provided
+	if startDate != "" {
+		if err := s.validateDateFormat(startDate); err != nil {
+			return nil, fmt.Errorf("invalid start date: %v", err)
+		}
+	}
+
+	if endDate != "" {
+		if err := s.validateDateFormat(endDate); err != nil {
+			return nil, fmt.Errorf("invalid end date: %v", err)
+		}
+	}
+
+	result, err := s.selfRepo.GetAllMawbInfo(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest) (*MawbInfoResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	if strings.TrimSpace(uuid) == "" {
+		return nil, errors.New("uuid is required")
+	}
+
+	// Validate input data
 	if err := s.validateUpdateInput(data); err != nil {
 		return nil, err
 	}
 
-	exists, err := s.selfRepo.IsMawbExists(txCtx, data.Mawb, uuid)
+	exists, err := s.selfRepo.IsMawbExists(ctx, data.Mawb, uuid)
 	if err != nil {
 		return nil, err
 	}
@@ -102,55 +214,77 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 		return nil, errors.New("mawb already exists")
 	}
 
+	// Convert chargeableWeight string to float64 with 2 decimal places
 	chargeableWeight, err := s.convertChargeableWeight(data.ChargeableWeight)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate date format
 	if err := s.validateDateFormat(data.Date); err != nil {
 		return nil, err
 	}
 
+	// Handle file attachments if present
 	var attachmentInfos []AttachmentInfo
+	fmt.Printf("DEBUG: Number of attachments received: %d\n", len(data.Attachments))
+
 	if len(data.Attachments) > 0 {
-		for _, fileHeader := range data.Attachments {
-			file, err := fileHeader.Open()
-			if err != nil {
-				return nil, fmt.Errorf("failed to open attachment file %s: %v", fileHeader.Filename, err)
-			}
-			defer file.Close()
+		// Create upload directory based on MAWB and date
+		uploadPath := filepath.Join("uploads", "mawb", data.Mawb, data.Date)
+		fmt.Printf("DEBUG: Upload path: %s\n", uploadPath)
 
-			objectName := fmt.Sprintf("uploads/mawb/%s/%s/%d_%s", data.Mawb, data.Date, time.Now().UnixNano(), fileHeader.Filename)
-			fileURL, err := s.gcsService.UploadToGCS(txCtx, file, objectName, true, fileHeader.Header.Get("Content-Type"))
-			if err != nil {
-				return nil, fmt.Errorf("failed to upload file %s to GCS: %v", fileHeader.Filename, err)
-			}
+		// Upload files
+		fileInfos, err := utils.UploadDocumentsToLocal(uploadPath, data.Attachments)
+		if err != nil {
+			return nil, fmt.Errorf("failed to upload attachments: %v", err)
+		}
 
-			attachmentInfos = append(attachmentInfos, AttachmentInfo{
-				FileName: fileHeader.Filename,
-				FileURL:  fileURL,
-				FileSize: fileHeader.Size,
-			})
+		fmt.Printf("DEBUG: Successfully uploaded %d files\n", len(fileInfos))
+
+		// Convert to AttachmentInfo
+		for _, fileInfo := range fileInfos {
+			attachmentInfo := AttachmentInfo{
+				FileName: fileInfo["fileName"].(string),
+				FileURL:  fileInfo["filePath"].(string),
+				FileSize: fileInfo["fileSize"].(int64),
+			}
+			attachmentInfos = append(attachmentInfos, attachmentInfo)
+			fmt.Printf("DEBUG: Added attachment: %+v\n", attachmentInfo)
 		}
 	}
 
-	result, err := s.selfRepo.UpdateMawbInfo(txCtx, uuid, data, chargeableWeight, attachmentInfos)
+	fmt.Printf("DEBUG: Final attachmentInfos count: %d\n", len(attachmentInfos))
+
+	// Call repository to update MAWB info
+	result, err := s.selfRepo.UpdateMawbInfo(ctx, uuid, data, chargeableWeight, attachmentInfos)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
+	fmt.Printf("DEBUG: Repository result attachments count: %d\n", len(result.Attachments))
+
 	return result, nil
 }
+func (s *service) DeleteMawbInfo(ctx context.Context, uuid string) error {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
 
-func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error {
-	tx, txCtx, err := utils.BeginTx(ctx)
+	if strings.TrimSpace(uuid) == "" {
+		return errors.New("uuid is required")
+	}
+
+	err := s.selfRepo.DeleteMawbInfo(ctx, uuid)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+
+	return nil
+}
+
+func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) error {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
 
 	if strings.TrimSpace(uuid) == "" {
 		return errors.New("uuid is required")
@@ -159,135 +293,52 @@ func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fil
 		return errors.New("fileName is required")
 	}
 
-	deletedAttachment, err := s.selfRepo.DeleteMawbInfoAttachment(txCtx, uuid, fileName)
+	// Delete from repository, which returns the file path
+	filePath, err := s.selfRepo.DeleteMawbInfoAttachment(ctx, uuid, fileName)
 	if err != nil {
-		return err
+		return err // Repository error (e.g., not found)
 	}
 
-	if deletedAttachment != nil && deletedAttachment.FileURL != "" {
-		urlParts := strings.SplitN(deletedAttachment.FileURL, "/", 4)
-		if len(urlParts) == 4 {
-			objectName := urlParts[3]
-			if err := s.gcsService.DeleteImage(objectName); err != nil {
-				fmt.Printf("warning: failed to delete GCS object '%s': %v\n", objectName, err)
-			}
-		} else {
-			fmt.Printf("warning: could not parse GCS object name from URL '%s'\n", deletedAttachment.FileURL)
+	// If file path is not empty, delete the file from local storage
+	if filePath != "" {
+		// It's good practice to ensure the path is within an expected directory
+		// to prevent path traversal attacks, though for this implementation we'll assume it's safe.
+		if err := os.Remove(filePath); err != nil {
+			// Log the error but don't fail the whole operation,
+			// as the DB record is already deleted.
+			// Consider a more robust error handling strategy for production.
+			fmt.Printf("warning: failed to delete attachment file '%s': %v\n", filePath, err)
 		}
 	}
 
-	return tx.Commit()
-}
-
-// ... (rest of the helper functions like GetMawbInfo, GetAllMawbInfo, etc. remain the same)
-func (s *service) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
-	defer cancel()
-	if strings.TrimSpace(uuid) == "" {
-		return nil, errors.New("uuid is required")
-	}
-	return s.selfRepo.GetMawbInfo(ctx, uuid)
-}
-
-func (s *service) GetAllMawbInfo(ctx context.Context, startDate, endDate string) ([]*MawbInfoResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
-	defer cancel()
-	if startDate != "" {
-		if err := s.validateDateFormat(startDate); err != nil {
-			return nil, fmt.Errorf("invalid start date: %v", err)
-		}
-	}
-	if endDate != "" {
-		if err := s.validateDateFormat(endDate); err != nil {
-			return nil, fmt.Errorf("invalid end date: %v", err)
-		}
-	}
-	return s.selfRepo.GetAllMawbInfo(ctx, startDate, endDate)
-}
-
-func (s *service) DeleteMawbInfo(ctx context.Context, uuid string) error {
-	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
-	defer cancel()
-	if strings.TrimSpace(uuid) == "" {
-		return errors.New("uuid is required")
-	}
-	return s.selfRepo.DeleteMawbInfo(ctx, uuid)
-}
-
-func (s *service) IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
-	defer cancel()
-	return s.selfRepo.IsMawbExists(ctx, mawb, uuid)
-}
-
-func (s *service) validateInput(data *CreateMawbInfoRequest) error {
-	if data == nil {
-		return errors.New("request data cannot be nil")
-	}
-	if strings.TrimSpace(data.ChargeableWeight) == "" {
-		return errors.New("chargeableWeight is required")
-	}
-	if strings.TrimSpace(data.Date) == "" {
-		return errors.New("date is required")
-	}
-	if strings.TrimSpace(data.Mawb) == "" {
-		return errors.New("mawb is required")
-	}
-	if strings.TrimSpace(data.ServiceType) == "" {
-		return errors.New("serviceType is required")
-	}
-	if strings.TrimSpace(data.ShippingType) == "" {
-		return errors.New("shippingType is required")
-	}
 	return nil
 }
 
+// validateUpdateInput validates all required fields for update
 func (s *service) validateUpdateInput(data *UpdateMawbInfoRequest) error {
 	if data == nil {
 		return errors.New("request data cannot be nil")
 	}
+
 	if strings.TrimSpace(data.ChargeableWeight) == "" {
 		return errors.New("chargeableWeight is required")
 	}
+
 	if strings.TrimSpace(data.Date) == "" {
 		return errors.New("date is required")
 	}
+
 	if strings.TrimSpace(data.Mawb) == "" {
 		return errors.New("mawb is required")
 	}
+
 	if strings.TrimSpace(data.ServiceType) == "" {
 		return errors.New("serviceType is required")
 	}
+
 	if strings.TrimSpace(data.ShippingType) == "" {
 		return errors.New("shippingType is required")
 	}
-	return nil
-}
 
-func (s *service) convertChargeableWeight(weightStr string) (string, error) {
-	weightStr = strings.TrimSpace(weightStr)
-	if weightStr == "" {
-		return "", errors.New("chargeableWeight cannot be empty")
-	}
-	weight, err := strconv.ParseFloat(weightStr, 64)
-	if err != nil {
-		return "", fmt.Errorf("invalid chargeableWeight format: %s", weightStr)
-	}
-	if weight < 0 {
-		return "", errors.New("chargeableWeight cannot be negative")
-	}
-	// return math.Round(weight*100) / 100, nil
-	return fmt.Sprintf("%.2f", weight), nil
-}
-
-func (s *service) validateDateFormat(dateStr string) error {
-	dateStr = strings.TrimSpace(dateStr)
-	if dateStr == "" {
-		return errors.New("date cannot be empty")
-	}
-	_, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %s", dateStr)
-	}
 	return nil
 }

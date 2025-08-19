@@ -11,26 +11,20 @@ import (
 	"cloud.google.com/go/storage"
 )
 
-type Service interface {
-	UploadToGCS(ctx context.Context, r io.Reader, objectName string, public bool, contentType string) (string, error)
-	GetPublicURL(objectName string) string
-	DeleteImage(objectName string) error
-}
-
 type Client struct {
 	projectID  string
 	bucketName string
 	client     *storage.Client
 }
 
-func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, objectName string, public bool, contentType string) (string, error) {
+func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, name string, public bool, contentType string) (*storage.ObjectHandle, *storage.ObjectAttrs, error) {
 	bh := gcs.client.Bucket(gcs.bucketName)
 	// Next check if the bucket exists
 	if _, err := bh.Attrs(ctx); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
-	obj := bh.Object(objectName)
+	obj := bh.Object(name)
 	w := obj.NewWriter(ctx)
 
 	// Set the Content-Type header
@@ -39,22 +33,18 @@ func (gcs *Client) UploadToGCS(ctx context.Context, r io.Reader, objectName stri
 	}
 
 	if _, err := io.Copy(w, r); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if err := w.Close(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if public {
 		if err := obj.ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
-			return "", err
+			return nil, nil, err
 		}
 	}
-	// Return the public URL
-	return gcs.GetPublicURL(objectName), nil
-}
-
-func (gcs *Client) GetPublicURL(objectName string) string {
-	return fmt.Sprintf("https://storage.googleapis.com/%s/%s", gcs.bucketName, objectName)
+	attrs, err := obj.Attrs(ctx)
+	return obj, attrs, err
 }
 
 // readFile reads the named file in Google Cloud Storage.
@@ -97,12 +87,21 @@ func InitialGCSClient(projectID, bucketName string, client *storage.Client) *Cli
 }
 
 func (gcs *Client) DeleteImage(objectName string) error {
+	// Create a context
 	ctx := context.Background()
-	bh := gcs.client.Bucket(gcs.bucketName)
-	obj := bh.Object(objectName)
+
+	// Create a storage client
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	// Create a handle to the object (image)
+	object := client.Bucket(gcs.bucketName).Object(objectName)
 
 	// Delete the object
-	if err := obj.Delete(ctx); err != nil {
+	if err := object.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete object %q: %v", objectName, err)
 	}
 

@@ -20,7 +20,6 @@ func NewCargoManifestRepository() CargoManifestRepository {
 	return &cargoManifestRepository{}
 }
 
-// ใช้ orm.DB แทน *pg.DB เพื่อรองรับทั้ง *pg.DB และ *pg.Tx
 func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
 	db, err := getQer(ctx)
 	if err != nil {
@@ -28,7 +27,7 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	}
 
 	manifest := &CargoManifest{}
-	err := db.Model(manifest).
+	err = db.Model(manifest).
 		Column("cargo_manifest.*").
 		ColumnExpr("ms.name AS status").
 		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").

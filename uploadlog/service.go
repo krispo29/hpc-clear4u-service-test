@@ -21,13 +21,13 @@ type Service interface {
 type service struct {
 	selfRepo       Repository
 	contextTimeout time.Duration
-	gcsClient      gcs.Service
+	gcsClient      *gcs.Client
 }
 
 func NewService(
 	selfRepo Repository,
 	timeout time.Duration,
-	gcsClient gcs.Service,
+	gcsClient *gcs.Client,
 ) Service {
 	return &service{
 		selfRepo:       selfRepo,
@@ -75,7 +75,7 @@ func (s *service) UploadLogFile(ctx context.Context, data *UploadFileModel) (str
 	if s.gcsClient == nil {
 		return "", fmt.Errorf("GCS client is not initialized")
 	}
-	fileURL, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(data.FileBytes), fullPath, true, contentType)
+	_, objAttrs, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(data.FileBytes), fullPath, true, contentType)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +83,7 @@ func (s *service) UploadLogFile(ctx context.Context, data *UploadFileModel) (str
 	loggingUploadUUID, err := s.selfRepo.Insert(ctx, &InsertModel{
 		Mawb:         data.Mawb,
 		FileName:     data.FileName,
-		FileUrl:      fileURL,
+		FileUrl:      objAttrs.MediaLink,
 		TemplateCode: data.TemplateCode,
 		Category:     data.Category,
 		SubCategory:  data.SubCategory,
