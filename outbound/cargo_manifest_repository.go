@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"hpc-express-service/utils"
 	"time"
 
 	"github.com/go-pg/pg/v9"
@@ -21,7 +22,7 @@ func NewCargoManifestRepository() CargoManifestRepository {
 }
 
 func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
-	db, err := getQer(ctx)
+	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 }
 
 func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	db, err := getQer(ctx)
+	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoMan
 }
 
 func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	db, err := getQer(ctx)
+	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
