@@ -264,19 +264,20 @@ func (s *service) validateUpdateInput(data *UpdateMawbInfoRequest) error {
 	return nil
 }
 
-func (s *service) convertChargeableWeight(weightStr string) (float64, error) {
+func (s *service) convertChargeableWeight(weightStr string) (string, error) {
 	weightStr = strings.TrimSpace(weightStr)
 	if weightStr == "" {
-		return 0, errors.New("chargeableWeight cannot be empty")
+		return "", errors.New("chargeableWeight cannot be empty")
 	}
 	weight, err := strconv.ParseFloat(weightStr, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid chargeableWeight format: %s", weightStr)
+		return "", fmt.Errorf("invalid chargeableWeight format: %s", weightStr)
 	}
 	if weight < 0 {
-		return 0, errors.New("chargeableWeight cannot be negative")
+		return "", errors.New("chargeableWeight cannot be negative")
 	}
-	return math.Round(weight*100) / 100, nil
+	// return math.Round(weight*100) / 100, nil
+	return fmt.Sprintf("%.2f", weight), nil
 }
 
 func (s *service) validateDateFormat(dateStr string) error {
