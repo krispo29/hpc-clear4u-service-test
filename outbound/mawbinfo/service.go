@@ -7,7 +7,6 @@ import (
 	"hpc-express-service/gcs"
 	"hpc-express-service/utils"
 	"math"
-	"mime/multipart"
 	"strconv"
 	"strings"
 	"time"
@@ -222,38 +221,72 @@ func (s *service) IsMawbExists(ctx context.Context, mawb string, uuid string) (b
 }
 
 func (s *service) validateInput(data *CreateMawbInfoRequest) error {
-	if data == nil { return errors.New("request data cannot be nil") }
-	if strings.TrimSpace(data.ChargeableWeight) == "" { return errors.New("chargeableWeight is required") }
-	if strings.TrimSpace(data.Date) == "" { return errors.New("date is required") }
-	if strings.TrimSpace(data.Mawb) == "" { return errors.New("mawb is required") }
-	if strings.TrimSpace(data.ServiceType) == "" { return errors.New("serviceType is required") }
-	if strings.TrimSpace(data.ShippingType) == "" { return errors.New("shippingType is required") }
+	if data == nil {
+		return errors.New("request data cannot be nil")
+	}
+	if strings.TrimSpace(data.ChargeableWeight) == "" {
+		return errors.New("chargeableWeight is required")
+	}
+	if strings.TrimSpace(data.Date) == "" {
+		return errors.New("date is required")
+	}
+	if strings.TrimSpace(data.Mawb) == "" {
+		return errors.New("mawb is required")
+	}
+	if strings.TrimSpace(data.ServiceType) == "" {
+		return errors.New("serviceType is required")
+	}
+	if strings.TrimSpace(data.ShippingType) == "" {
+		return errors.New("shippingType is required")
+	}
 	return nil
 }
 
 func (s *service) validateUpdateInput(data *UpdateMawbInfoRequest) error {
-	if data == nil { return errors.New("request data cannot be nil") }
-	if strings.TrimSpace(data.ChargeableWeight) == "" { return errors.New("chargeableWeight is required") }
-	if strings.TrimSpace(data.Date) == "" { return errors.New("date is required") }
-	if strings.TrimSpace(data.Mawb) == "" { return errors.New("mawb is required") }
-	if strings.TrimSpace(data.ServiceType) == "" { return errors.New("serviceType is required") }
-	if strings.TrimSpace(data.ShippingType) == "" { return errors.New("shippingType is required") }
+	if data == nil {
+		return errors.New("request data cannot be nil")
+	}
+	if strings.TrimSpace(data.ChargeableWeight) == "" {
+		return errors.New("chargeableWeight is required")
+	}
+	if strings.TrimSpace(data.Date) == "" {
+		return errors.New("date is required")
+	}
+	if strings.TrimSpace(data.Mawb) == "" {
+		return errors.New("mawb is required")
+	}
+	if strings.TrimSpace(data.ServiceType) == "" {
+		return errors.New("serviceType is required")
+	}
+	if strings.TrimSpace(data.ShippingType) == "" {
+		return errors.New("shippingType is required")
+	}
 	return nil
 }
 
 func (s *service) convertChargeableWeight(weightStr string) (float64, error) {
 	weightStr = strings.TrimSpace(weightStr)
-	if weightStr == "" { return 0, errors.New("chargeableWeight cannot be empty") }
+	if weightStr == "" {
+		return 0, errors.New("chargeableWeight cannot be empty")
+	}
 	weight, err := strconv.ParseFloat(weightStr, 64)
-	if err != nil { return 0, fmt.Errorf("invalid chargeableWeight format: %s", weightStr) }
-	if weight < 0 { return 0, errors.New("chargeableWeight cannot be negative") }
+	if err != nil {
+		return 0, fmt.Errorf("invalid chargeableWeight format: %s", weightStr)
+	}
+	if weight < 0 {
+		return 0, errors.New("chargeableWeight cannot be negative")
+	}
 	return math.Round(weight*100) / 100, nil
 }
 
 func (s *service) validateDateFormat(dateStr string) error {
 	dateStr = strings.TrimSpace(dateStr)
-	if dateStr == "" { return errors.New("date cannot be empty") }
+	if dateStr == "" {
+		return errors.New("date cannot be empty")
+	}
 	_, err := time.Parse("2006-01-02", dateStr)
-	if err != nil { return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %s", dateStr) }
+	if err != nil {
+		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %s", dateStr)
+	}
 	return nil
 }

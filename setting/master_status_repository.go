@@ -85,7 +85,7 @@ func (r *masterStatusRepository) GetDefaultStatusByType(ctx context.Context, sta
 		return nil, err
 	}
 	status := new(MasterStatus)
-	_, err = db.QueryOne(status, `SELECT * FROM master_statuses WHERE type = ? AND is_default = true LIMIT 1`, statusType)
+	_, err = db.QueryOne(status, `SELECT * FROM master_status WHERE type = ? AND is_default = true LIMIT 1`, statusType)
 	return status, err
 }
 
