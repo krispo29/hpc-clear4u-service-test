@@ -2,8 +2,7 @@ package setting
 
 import (
 	"context"
-
-	"github.com/go-pg/pg/v9"
+	"hpc-express-service/utils"
 )
 
 type MasterStatusRepository interface {
@@ -24,54 +23,78 @@ func NewMasterStatusRepository() MasterStatusRepository {
 }
 
 func (r *masterStatusRepository) CreateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	_, err := db.ModelContext(ctx, status).Insert()
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.ModelContext(ctx, status).Insert()
 	return status, err
 }
 
 func (r *masterStatusRepository) GetAllMasterStatuses(ctx context.Context) ([]MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var statuses []MasterStatus
-	err := db.ModelContext(ctx, &statuses).Select()
+	err = db.ModelContext(ctx, &statuses).Select()
 	return statuses, err
 }
 
 func (r *masterStatusRepository) GetMasterStatusesByType(ctx context.Context, statusType string) ([]MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var statuses []MasterStatus
-	err := db.ModelContext(ctx, &statuses).Where("type = ?", statusType).Select()
+	err = db.ModelContext(ctx, &statuses).Where("type = ?", statusType).Select()
 	return statuses, err
 }
 
 func (r *masterStatusRepository) GetMasterStatusByUUID(ctx context.Context, uuid string) (*MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
 	status := new(MasterStatus)
-	err := db.ModelContext(ctx, status).Where("uuid = ?", uuid).Select()
+	err = db.ModelContext(ctx, status).Where("uuid = ?", uuid).Select()
 	return status, err
 }
 
 func (r *masterStatusRepository) UpdateMasterStatus(ctx context.Context, status *MasterStatus) (*MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	_, err := db.ModelContext(ctx, status).WherePK().Update()
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.ModelContext(ctx, status).WherePK().Update()
 	return status, err
 }
 
 func (r *masterStatusRepository) DeleteMasterStatus(ctx context.Context, uuid string) error {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	_, err := db.ModelContext(ctx, &MasterStatus{}).Where("uuid = ?", uuid).Delete()
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = db.ModelContext(ctx, &MasterStatus{}).Where("uuid = ?", uuid).Delete()
 	return err
 }
 
 func (r *masterStatusRepository) GetDefaultStatusByType(ctx context.Context, statusType string) (*MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
 	status := new(MasterStatus)
-	err := db.ModelContext(ctx, status).Where("type = ?", statusType).Where("is_default = ?", true).First()
+	err = db.ModelContext(ctx, status).Where("type = ?", statusType).Where("is_default = ?", true).First()
 	return status, err
 }
 
 func (r *masterStatusRepository) GetStatusByNameAndType(ctx context.Context, name, statusType string) (*MasterStatus, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	db, err := utils.GetQuerier(ctx)
+	if err != nil {
+		return nil, err
+	}
 	status := new(MasterStatus)
-	err := db.ModelContext(ctx, status).Where("name = ?", name).Where("type = ?", statusType).First()
+	err = db.ModelContext(ctx, status).Where("name = ?", name).Where("type = ?", statusType).First()
 	return status, err
 }
