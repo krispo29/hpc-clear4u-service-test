@@ -85,7 +85,7 @@ func (r *masterStatusRepository) GetDefaultStatusByType(ctx context.Context, sta
 		return nil, err
 	}
 	status := new(MasterStatus)
-	err = db.ModelContext(ctx, status).Where("type = ?", statusType).Where("is_default = ?", true).First()
+	_, err = db.QueryOne(status, `SELECT * FROM master_statuses WHERE type = ? AND is_default = true LIMIT 1`, statusType)
 	return status, err
 }
 
