@@ -11,6 +11,10 @@ import (
 // qer สามารถเป็นได้ทั้ง *pg.DB และ *pg.Tx
 type qer interface {
 	Model(...interface{}) *orm.Query
+	Query(model, query interface{}, params ...interface{}) (orm.Result, error)
+	QueryOne(model, query interface{}, params ...interface{}) (orm.Result, error)
+	Exec(query interface{}, params ...interface{}) (orm.Result, error)
+	ExecOne(query interface{}, params ...interface{}) (orm.Result, error)
 }
 
 func getQer(ctx context.Context) (qer, error) {
