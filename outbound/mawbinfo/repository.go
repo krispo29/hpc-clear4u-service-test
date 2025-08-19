@@ -18,7 +18,7 @@ type Repository interface {
 	GetAllMawbInfo(ctx context.Context, startDate, endDate string) ([]*MawbInfoResponse, error)
 	UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateMawbInfoRequest, chargeableWeight float64, attachments []AttachmentInfo) (*MawbInfoResponse, error)
 	DeleteMawbInfo(ctx context.Context, uuid string) error
-	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (string, error)
+	DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (*AttachmentInfo, error)
 	IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error)
 }
 
@@ -470,44 +470,39 @@ func (r repository) DeleteMawbInfo(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (r repository) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (string, error) {
-	db := ctx.Value("postgreSQLConn").(*pg.DB)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	tx, err := db.Begin()
+func (r repository) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fileName string) (*AttachmentInfo, error) {
+	db, err := utils.GetQuerier(ctx)
 	if err != nil {
-		return "", utils.PostgresErrorTransform(err)
+		return nil, err
 	}
-	defer tx.Rollback()
 
 	// 1. Get the current attachments
 	var attachmentsStr string
-	_, err = tx.QueryOneContext(ctx, pg.Scan(&attachmentsStr), `
+	_, err = db.QueryOneContext(ctx, pg.Scan(&attachmentsStr), `
         SELECT COALESCE(attachments::text, '[]') 
         FROM tbl_mawb_info 
         WHERE uuid = ?
     `, uuid)
 	if err != nil {
 		if err == pg.ErrNoRows {
-			return "", errors.New("mawb info not found")
+			return nil, errors.New("mawb info not found")
 		}
-		return "", utils.PostgresErrorTransform(err)
+		return nil, utils.PostgresErrorTransform(err)
 	}
 
 	// 2. Unmarshal into a slice of AttachmentInfo
 	var attachments []AttachmentInfo
 	if err := json.Unmarshal([]byte(attachmentsStr), &attachments); err != nil {
-		return "", fmt.Errorf("failed to unmarshal attachments: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal attachments: %v", err)
 	}
 
 	// 3. Find the attachment to delete and create a new slice
 	var updatedAttachments []AttachmentInfo
-	var deletedFileUrl string
+	var deletedAttachment *AttachmentInfo
 	found := false
 	for _, attachment := range attachments {
 		if attachment.FileName == fileName {
-			deletedFileUrl = attachment.FileURL
+			deletedAttachment = &attachment
 			found = true
 		} else {
 			updatedAttachments = append(updatedAttachments, attachment)
@@ -515,13 +510,13 @@ func (r repository) DeleteMawbInfoAttachment(ctx context.Context, uuid string, f
 	}
 
 	if !found {
-		return "", errors.New("attachment not found")
+		return nil, errors.New("attachment not found")
 	}
 
 	// 4. Marshal the updated slice back to JSON
 	updatedAttachmentsJSON, err := json.Marshal(updatedAttachments)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal updated attachments: %v", err)
+		return nil, fmt.Errorf("failed to marshal updated attachments: %v", err)
 	}
 
 	// 5. Update the database
@@ -531,27 +526,22 @@ func (r repository) DeleteMawbInfoAttachment(ctx context.Context, uuid string, f
         WHERE uuid = ?
     `
 	sqlStr = utils.ReplaceSQL(sqlStr, "?")
-	stmt, err := tx.Prepare(sqlStr)
+	stmt, err := db.Prepare(sqlStr)
 	if err != nil {
-		return "", utils.PostgresErrorTransform(err)
+		return nil, utils.PostgresErrorTransform(err)
 	}
 	defer stmt.Close()
 
 	result, err := stmt.ExecContext(ctx, string(updatedAttachmentsJSON), uuid)
 	if err != nil {
-		return "", utils.PostgresErrorTransform(err)
+		return nil, utils.PostgresErrorTransform(err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return "", errors.New("mawb info not found during update")
+		return nil, errors.New("mawb info not found during update")
 	}
 
-	// 6. Commit the transaction
-	if err := tx.Commit(); err != nil {
-		return "", utils.PostgresErrorTransform(err)
-	}
-
-	return deletedFileUrl, nil
+	return deletedAttachment, nil
 }
 
 func (r repository) IsMawbExists(ctx context.Context, mawb string, uuid string) (bool, error) {

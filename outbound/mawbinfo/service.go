@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hpc-express-service/gcs"
-	"hpc-express-service/utils"
 	"math"
-	"mime/multipart"
 	"strconv"
 	"strings"
 	"time"
@@ -259,14 +257,7 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 	}
 
 	// Call repository to update MAWB info
-	result, err := s.selfRepo.UpdateMawbInfo(ctx, uuid, data, chargeableWeight, attachmentInfos)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("DEBUG: Repository result attachments count: %d\n", len(result.Attachments))
-
-	return result, nil
+	return s.selfRepo.UpdateMawbInfo(ctx, uuid, data, chargeableWeight, attachmentInfos)
 }
 func (s *service) DeleteMawbInfo(ctx context.Context, uuid string) error {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
@@ -295,25 +286,35 @@ func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fil
 		return errors.New("fileName is required")
 	}
 
-	// Delete from repository, which returns the file path
-	filePath, err := s.selfRepo.DeleteMawbInfoAttachment(ctx, uuid, fileName)
+	tx, txCtx, err := utils.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Delete from repository, which returns the deleted attachment info
+	deletedAttachment, err := s.selfRepo.DeleteMawbInfoAttachment(txCtx, uuid, fileName)
 	if err != nil {
 		return err // Repository error (e.g., not found)
 	}
 
-	// If file path is not empty, delete the file from local storage
-	if filePath != "" {
-		// It's good practice to ensure the path is within an expected directory
-		// to prevent path traversal attacks, though for this implementation we'll assume it's safe.
-		if err := os.Remove(filePath); err != nil {
-			// Log the error but don't fail the whole operation,
-			// as the DB record is already deleted.
-			// Consider a more robust error handling strategy for production.
-			fmt.Printf("warning: failed to delete attachment file '%s': %v\n", filePath, err)
+	// If an attachment was deleted, delete the corresponding file from GCS
+	if deletedAttachment != nil && deletedAttachment.FileURL != "" {
+		// Extract object name from URL
+		urlParts := strings.SplitN(deletedAttachment.FileURL, "/", 4) // Split up to 4 times
+		if len(urlParts) == 4 {
+			objectName := urlParts[3]
+			if err := s.gcsService.DeleteImage(objectName); err != nil {
+				// Log the error but don't fail the whole operation,
+				// as the DB record is already deleted. This prevents inconsistency.
+				fmt.Printf("warning: failed to delete GCS object '%s': %v\n", objectName, err)
+			}
+		} else {
+			fmt.Printf("warning: could not parse GCS object name from URL '%s'\n", deletedAttachment.FileURL)
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // validateUpdateInput validates all required fields for update

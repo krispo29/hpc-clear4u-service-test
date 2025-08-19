@@ -97,21 +97,12 @@ func InitialGCSClient(projectID, bucketName string, client *storage.Client) *Cli
 }
 
 func (gcs *Client) DeleteImage(objectName string) error {
-	// Create a context
 	ctx := context.Background()
-
-	// Create a storage client
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %v", err)
-	}
-	defer client.Close()
-
-	// Create a handle to the object (image)
-	object := client.Bucket(gcs.bucketName).Object(objectName)
+	bh := gcs.client.Bucket(gcs.bucketName)
+	obj := bh.Object(objectName)
 
 	// Delete the object
-	if err := object.Delete(ctx); err != nil {
+	if err := obj.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete object %q: %v", objectName, err)
 	}
 

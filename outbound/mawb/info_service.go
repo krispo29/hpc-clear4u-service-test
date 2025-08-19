@@ -101,13 +101,12 @@ func (s *service) UploadAttachment(ctx context.Context, uuid, fileOriginName str
 		if s.gcsClient == nil {
 			return fmt.Errorf("GCS client is not initialized")
 		}
-		_, _, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(fileBytes), fullPath, true, contentType)
+		fileURL, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(fileBytes), fullPath, true, contentType)
 		if err != nil {
 			log.Println("err", err)
 			return err
 		}
-
-		attachmentFileUrl = "https://storage.googleapis.com/" + s.conf.GCSBucketName + "/" + fullPath
+		attachmentFileUrl = fileURL
 	}
 
 	if err := s.selfRepo.InsertAttchment(ctx, &InsertAttchmentModel{
