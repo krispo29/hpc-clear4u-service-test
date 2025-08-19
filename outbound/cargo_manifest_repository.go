@@ -2,7 +2,6 @@ package outbound
 
 import (
 	"context"
-	"hpc-express-service/utils"
 	"time"
 
 	"github.com/go-pg/pg/v9"
@@ -21,14 +20,15 @@ func NewCargoManifestRepository() CargoManifestRepository {
 	return &cargoManifestRepository{}
 }
 
+// ใช้ orm.DB แทน *pg.DB เพื่อรองรับทั้ง *pg.DB และ *pg.Tx
 func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
-	db, err := utils.GetQuerier(ctx)
+	db, err := getQer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	manifest := &CargoManifest{}
-	err = db.Model(manifest).
+	err := db.Model(manifest).
 		Column("cargo_manifest.*").
 		ColumnExpr("ms.name AS status").
 		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
@@ -53,7 +53,7 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 }
 
 func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	db, err := utils.GetQuerier(ctx)
+	db, err := getQer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoMan
 }
 
 func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
-	db, err := utils.GetQuerier(ctx)
+	db, err := getQer(ctx)
 	if err != nil {
 		return nil, err
 	}

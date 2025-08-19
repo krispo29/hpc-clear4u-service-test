@@ -42,14 +42,19 @@ func (s *cargoManifestService) setDefaultStatus(ctx context.Context, manifest *C
 }
 
 func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
+=======
+	// Add validation or transformation logic here.
+	// For example, ensuring MAWBInfoUUID is present and valid.
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
 	// Check if cargo manifest already exists for this MAWB
-	existing, err := s.repo.GetByMAWBUUID(txCtx, manifest.MAWBInfoUUID)
+	existing, err := s.repo.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,30 +62,27 @@ func (s *cargoManifestService) CreateCargoManifest(ctx context.Context, manifest
 		return nil, fmt.Errorf("cargo manifest already exists for this MAWB")
 	}
 
-	if err := s.setDefaultStatus(txCtx, manifest); err != nil {
+	if err := s.setDefaultStatus(ctx, manifest); err != nil {
 		return nil, err
 	}
 
-	result, err := s.repo.Create(txCtx, manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return s.repo.Create(ctx, manifest)
 }
 
 func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
+=======
+	// Add validation or transformation logic here.
+	// For example, ensuring MAWBInfoUUID is present and valid.
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
 	// Check if cargo manifest exists for this MAWB
-	existing, err := s.repo.GetByMAWBUUID(txCtx, manifest.MAWBInfoUUID)
+	existing, err := s.repo.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,30 +93,25 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
 
-	if err := s.setDefaultStatus(txCtx, manifest); err != nil {
+	if err := s.setDefaultStatus(ctx, manifest); err != nil {
 		return nil, err
 	}
 
-	result, err := s.repo.Update(txCtx, manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return s.repo.Update(ctx, manifest)
 }
 
 func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
+=======
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 	// Get the existing manifest
-	manifest, err := s.repo.GetByMAWBUUID(txCtx, mawbUUID)
+	manifest, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
 		return err
 	}
@@ -124,9 +121,6 @@ func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, ma
 
 	// Update the status
 	manifest.StatusUUID = statusUUID
-	if _, err = s.repo.Update(txCtx, manifest); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	_, err = s.repo.Update(ctx, manifest)
+	return err
 }

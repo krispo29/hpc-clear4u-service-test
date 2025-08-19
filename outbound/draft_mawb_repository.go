@@ -78,11 +78,16 @@ func (r *draftMAWBRepository) GetByUUID(ctx context.Context, uuid string) (*Draf
 
 // UpdateStatus updates the status of a draft MAWB.
 func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, statusUUID string) error {
+<<<<<<< HEAD
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return err
 	}
 	_, err = db.Model(&DraftMAWB{}).
+=======
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	_, err := db.Model(&DraftMAWB{}).
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 		Set("status_uuid = ?, updated_at = ?", statusUUID, time.Now()).
 		Where("uuid = ?", uuid).
 		Update()
@@ -91,10 +96,14 @@ func (r *draftMAWBRepository) UpdateStatus(ctx context.Context, uuid, statusUUID
 
 // GetAll retrieves all draft MAWB records with customer information and date filtering
 func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error) {
+<<<<<<< HEAD
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
+=======
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
 	var items []DraftMAWBListItem
 
@@ -146,16 +155,24 @@ func (r *draftMAWBRepository) GetAll(ctx context.Context, startDate, endDate str
 	return items, nil
 }
 
-// CreateWithRelations creates a new draft MAWB with its items and charges within a transaction.
+// CreateWithRelations creates a new draft MAWB with its items and charges
 func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+<<<<<<< HEAD
 	db, err := utils.GetQuerier(ctx)
+=======
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Start transaction
+	tx, err := db.Begin()
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
 
 	// First check if MAWB Info exists
 	var mawbInfoExists bool
-	_, err = db.QueryOne(pg.Scan(&mawbInfoExists),
+	_, err = tx.QueryOne(pg.Scan(&mawbInfoExists),
 		"SELECT EXISTS(SELECT 1 FROM public.tbl_mawb_info WHERE uuid = ?)",
 		draftMAWB.MAWBInfoUUID)
 	if err != nil {
@@ -164,7 +181,7 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 
 	if !mawbInfoExists {
 		// If MAWB Info doesn't exist, create a basic one
-		_, err = db.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO public.tbl_mawb_info (uuid, chargeable_weight, date, mawb, service_type, shipping_type, created_at, updated_at) 
 			VALUES (?, 0, CURRENT_DATE, 'AUTO-GENERATED', 'cargo', 'air', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			ON CONFLICT (uuid) DO NOTHING`,
@@ -178,10 +195,12 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 	draftMAWB.UUID = uuid.New().String()
 	draftMAWB.CreatedAt = time.Now()
 	draftMAWB.UpdatedAt = time.Now()
-	_, err = db.Model(draftMAWB).Insert()
+	_, err = tx.Model(draftMAWB).Insert()
 	if err != nil {
 		return nil, err
 	}
+
+	// No need to delete existing items and charges for create operation
 
 	// Insert new items
 	for _, itemInput := range items {
@@ -197,7 +216,7 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 			Total:             itemInput.Total,
 			NatureAndQuantity: itemInput.NatureAndQuantity,
 		}
-		_, err = db.Model(item).Insert()
+		_, err = tx.Model(item).Insert()
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +230,7 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 				Height:          fmt.Sprintf("%d", dimInput.Height),
 				Count:           fmt.Sprintf("%d", dimInput.Count),
 			}
-			_, err = db.Model(dim).Insert()
+			_, err = tx.Model(dim).Insert()
 			if err != nil {
 				return nil, err
 			}
@@ -225,24 +244,42 @@ func (r *draftMAWBRepository) CreateWithRelations(ctx context.Context, draftMAWB
 			Key:           chargeInput.Key,
 			Value:         chargeInput.Value,
 		}
-		_, err = db.Model(charge).Insert()
+		_, err = tx.Model(charge).Insert()
 		if err != nil {
 			return nil, err
 		}
 	}
 
+<<<<<<< HEAD
 	return r.GetByUUID(ctx, draftMAWB.UUID)
 }
 
 // UpdateWithRelations updates an existing draft MAWB with its items and charges within a transaction.
 func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
 	db, err := utils.GetQuerier(ctx)
+=======
+	// Commit transaction
+	err = tx.Commit()
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 	if err != nil {
 		return nil, err
 	}
 
+	return r.GetByUUID(ctx, draftMAWB.UUID)
+}
+
+// UpdateWithRelations updates an existing draft MAWB with its items and charges
+func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
 	// Get existing record to preserve created_at
-	// Note: This GetByUUID call will use the transaction from the context if it exists.
 	existing, err := r.GetByUUID(ctx, draftMAWB.UUID)
 	if err != nil {
 		return nil, err
@@ -254,17 +291,17 @@ func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB
 	// Update existing record
 	draftMAWB.CreatedAt = existing.CreatedAt // Keep original created_at
 	draftMAWB.UpdatedAt = time.Now()
-	_, err = db.Model(draftMAWB).WherePK().Update()
+	_, err = tx.Model(draftMAWB).WherePK().Update()
 	if err != nil {
 		return nil, err
 	}
 
 	// Delete existing items and charges
-	_, err = db.Model((*DraftMAWBItem)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
+	_, err = tx.Model((*DraftMAWBItem)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Model((*DraftMAWBCharge)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
+	_, err = tx.Model((*DraftMAWBCharge)(nil)).Where("draft_mawb_uuid = ?", draftMAWB.UUID).Delete()
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +320,7 @@ func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB
 			Total:             itemInput.Total,
 			NatureAndQuantity: itemInput.NatureAndQuantity,
 		}
-		_, err = db.Model(item).Insert()
+		_, err = tx.Model(item).Insert()
 		if err != nil {
 			return nil, err
 		}
@@ -297,7 +334,7 @@ func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB
 				Height:          fmt.Sprintf("%d", dimInput.Height),
 				Count:           fmt.Sprintf("%d", dimInput.Count),
 			}
-			_, err = db.Model(dim).Insert()
+			_, err = tx.Model(dim).Insert()
 			if err != nil {
 				return nil, err
 			}
@@ -311,10 +348,16 @@ func (r *draftMAWBRepository) UpdateWithRelations(ctx context.Context, draftMAWB
 			Key:           chargeInput.Key,
 			Value:         chargeInput.Value,
 		}
-		_, err = db.Model(charge).Insert()
+		_, err = tx.Model(charge).Insert()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
 	}
 
 	return r.GetByUUID(ctx, draftMAWB.UUID)
@@ -328,10 +371,14 @@ func (r *draftMAWBRepository) GetWithRelations(ctx context.Context, uuid string)
 		return nil, err
 	}
 
+<<<<<<< HEAD
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
+=======
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
 	// Get items
 	var items []DraftMAWBItem
@@ -372,10 +419,14 @@ func (r *draftMAWBRepository) GetWithRelationsByMAWBUUID(ctx context.Context, ma
 		return nil, err
 	}
 
+<<<<<<< HEAD
 	db, err := utils.GetQuerier(ctx)
 	if err != nil {
 		return nil, err
 	}
+=======
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
 	// Get items
 	var items []DraftMAWBItem

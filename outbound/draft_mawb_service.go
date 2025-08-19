@@ -51,70 +51,46 @@ func (s *draftMAWBService) setDefaultStatus(ctx context.Context, draftMAWB *Draf
 }
 
 func (s *draftMAWBService) CreateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
+=======
+	if err := s.setDefaultStatus(ctx, draftMAWB); err != nil {
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 		return nil, err
 	}
-	defer tx.Rollback()
-
-	if err := s.setDefaultStatus(txCtx, draftMAWB); err != nil {
-		return nil, err
-	}
-
-	result, err := s.repo.CreateWithRelations(txCtx, draftMAWB, items, charges)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return s.repo.CreateWithRelations(ctx, draftMAWB, items, charges)
 }
 
 func (s *draftMAWBService) UpdateDraftMAWB(ctx context.Context, draftMAWB *DraftMAWB, items []DraftMAWBItemInput, charges []DraftMAWBChargeInput) (*DraftMAWB, error) {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
+=======
+	if err := s.setDefaultStatus(ctx, draftMAWB); err != nil {
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 		return nil, err
 	}
-	defer tx.Rollback()
-
-	if err := s.setDefaultStatus(txCtx, draftMAWB); err != nil {
-		return nil, err
-	}
-
-	result, err := s.repo.UpdateWithRelations(txCtx, draftMAWB, items, charges)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return s.repo.UpdateWithRelations(ctx, draftMAWB, items, charges)
 }
 func (s *draftMAWBService) UpdateDraftMAWBStatus(ctx context.Context, mawbUUID, statusUUID string) error {
+<<<<<<< HEAD
 	tx, txCtx, err := utils.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+=======
+>>>>>>> parent of 085c650 (Merge pull request #16 from krispo29/fix/sql-alias-status)
 
-	draft, err := s.repo.GetByMAWBUUID(txCtx, mawbUUID)
+	draft, err := s.repo.GetByMAWBUUID(ctx, mawbUUID)
 	if err != nil {
 		return err
 	}
 	if draft == nil {
 		return nil // Or a not found error
 	}
-
-	if err := s.repo.UpdateStatus(txCtx, draft.UUID, statusUUID); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return s.repo.UpdateStatus(ctx, draft.UUID, statusUUID)
 }
 
 func (s *draftMAWBService) GetAllDraftMAWB(ctx context.Context, startDate, endDate string) ([]DraftMAWBListItem, error) {
