@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hpc-express-service/gcs"
 	"hpc-express-service/utils"
 	"math"
-	"os"
-	"path/filepath"
+	"mime/multipart"
 	"strconv"
 	"strings"
 	"time"
@@ -25,15 +25,18 @@ type Service interface {
 
 type service struct {
 	selfRepo       Repository
+	gcsService     gcs.Service
 	contextTimeout time.Duration
 }
 
 func NewService(
 	selfRepo Repository,
+	gcsService gcs.Service,
 	timeout time.Duration,
 ) Service {
 	return &service{
 		selfRepo:       selfRepo,
+		gcsService:     gcsService,
 		contextTimeout: timeout,
 	}
 }
@@ -227,34 +230,33 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 
 	// Handle file attachments if present
 	var attachmentInfos []AttachmentInfo
-	fmt.Printf("DEBUG: Number of attachments received: %d\n", len(data.Attachments))
-
 	if len(data.Attachments) > 0 {
-		// Create upload directory based on MAWB and date
-		uploadPath := filepath.Join("uploads", "mawb", data.Mawb, data.Date)
-		fmt.Printf("DEBUG: Upload path: %s\n", uploadPath)
+		for _, fileHeader := range data.Attachments {
+			// Open the file
+			file, err := fileHeader.Open()
+			if err != nil {
+				return nil, fmt.Errorf("failed to open attachment file %s: %v", fileHeader.Filename, err)
+			}
+			defer file.Close()
 
-		// Upload files
-		fileInfos, err := utils.UploadDocumentsToLocal(uploadPath, data.Attachments)
-		if err != nil {
-			return nil, fmt.Errorf("failed to upload attachments: %v", err)
-		}
+			// Construct object name for GCS
+			objectName := fmt.Sprintf("uploads/mawb/%s/%s/%d_%s", data.Mawb, data.Date, time.Now().UnixNano(), fileHeader.Filename)
 
-		fmt.Printf("DEBUG: Successfully uploaded %d files\n", len(fileInfos))
+			// Upload to GCS
+			fileURL, err := s.gcsService.UploadToGCS(ctx, file, objectName, true, fileHeader.Header.Get("Content-Type"))
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload file %s to GCS: %v", fileHeader.Filename, err)
+			}
 
-		// Convert to AttachmentInfo
-		for _, fileInfo := range fileInfos {
+			// Create AttachmentInfo
 			attachmentInfo := AttachmentInfo{
-				FileName: fileInfo["fileName"].(string),
-				FileURL:  fileInfo["filePath"].(string),
-				FileSize: fileInfo["fileSize"].(int64),
+				FileName: fileHeader.Filename,
+				FileURL:  fileURL,
+				FileSize: fileHeader.Size,
 			}
 			attachmentInfos = append(attachmentInfos, attachmentInfo)
-			fmt.Printf("DEBUG: Added attachment: %+v\n", attachmentInfo)
 		}
 	}
-
-	fmt.Printf("DEBUG: Final attachmentInfos count: %d\n", len(attachmentInfos))
 
 	// Call repository to update MAWB info
 	result, err := s.selfRepo.UpdateMawbInfo(ctx, uuid, data, chargeableWeight, attachmentInfos)

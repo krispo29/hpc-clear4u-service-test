@@ -105,6 +105,7 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// MawbInfo
 	mawbInfoSvc := mawbinfo.NewService(
 		repo.MawbInfoRepo,
+		gcsClient,
 		timeoutContext,
 	)
 	/*
