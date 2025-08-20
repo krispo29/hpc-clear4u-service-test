@@ -928,8 +928,15 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 
 	pdf.SetFont("THSarabunNew", "", 12)
 	pdf.CellFormat(0, 6, fmt.Sprintf("FLIGHT NO: %s", manifest.FlightNo), "0", 1, "R", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("MAWB NO: %s", manifest.MAWBNumber), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("PORT OF DISCHARGE: %s", manifest.PortOfDischarge), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 6, fmt.Sprintf("FREIGHT DATE: %s", manifest.FreightDate), "0", 1, "L", false, 0, "")
+	pdf.MultiCell(0, 6, fmt.Sprintf("SHIPPER:\n%s", manifest.Shipper), "", "L", false)
+	pdf.MultiCell(0, 6, fmt.Sprintf("CONSIGNEE:\n%s", manifest.Consignee), "", "L", false)
+	pdf.CellFormat(0, 6, fmt.Sprintf("TOTAL CTN: %s", manifest.TotalCtn), "0", 1, "L", false, 0, "")
+	pdf.Ln(3)
 
-	headers := []string{"MAWB NO.", "CTNS", "WEIGHT(KG)", "ORIGIN", "DES", "SHIPPER NAME AND ADDRESS", "CONSIGNEE NAME AND ADDRESS", "NATURE OF GOODS"}
+	headers := []string{"HAWB NO.", "CTNS", "WEIGHT(KG)", "ORIGIN", "DES", "SHIPPER NAME AND ADDRESS", "CONSIGNEE NAME AND ADDRESS", "NATURE OF GOODS"}
 	colWidths := []float64{25, 15, 20, 20, 20, 40, 40, 30}
 
 	pdf.SetFont("THSarabunNew Bold", "", 10)
