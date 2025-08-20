@@ -927,7 +927,8 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 	pdf.CellFormat(0, 7, "AIR CARGO MANIFEST", "0", 1, "C", false, 0, "")
 
 	pdf.SetFont("THSarabunNew", "", 12)
-	pdf.CellFormat(0, 6, fmt.Sprintf("FLIGHT NO: %s", manifest.FlightNo), "0", 1, "R", false, 0, "")
+	pdf.SetX(200)
+	pdf.CellFormat(0, 6, fmt.Sprintf("FLIGHT NO: %s", manifest.FlightNo), "0", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("MAWB NO: %s", manifest.MAWBNumber), "0", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("PORT OF DISCHARGE: %s", manifest.PortOfDischarge), "0", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("FREIGHT DATE: %s", manifest.FreightDate), "0", 1, "L", false, 0, "")
