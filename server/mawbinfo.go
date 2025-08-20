@@ -53,6 +53,7 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Post("/cargo-manifest/confirm", h.confirmCargoManifest)
 		r.Post("/cargo-manifest/reject", h.rejectCargoManifest)
 		r.Get("/cargo-manifest/print", h.printCargoManifest)
+		r.Post("/cargo-manifest/preview", h.previewCargoManifest)
 
 		// Draft MAWB Routes
 		r.Get("/draft-mawb", h.getDraftMAWB)
@@ -260,8 +261,58 @@ func (h *mawbInfoHandler) rejectCargoManifest(w http.ResponseWriter, r *http.Req
 	render.Respond(w, r, SuccessResponse(nil, "Cargo Manifest rejected successfully"))
 }
 func (h *mawbInfoHandler) printCargoManifest(w http.ResponseWriter, r *http.Request) {
-	// PDF generation logic goes here
-	render.Respond(w, r, SuccessResponse(nil, "Print endpoint not implemented yet"))
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	manifest, err := h.cargoManifestSvc.GetCargoManifestByMAWBUUID(r.Context(), mawbUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if manifest == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Cargo Manifest not found for this MAWB"})
+		return
+	}
+
+	pdfBuffer, err := h.generateCargoManifestPDF(manifest)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=cargo_manifest.pdf")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+	w.Write(pdfBuffer.Bytes())
+}
+
+func (h *mawbInfoHandler) previewCargoManifest(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	manifest := &outbound.CargoManifest{}
+	if err := render.Bind(r, manifest); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	manifest.MAWBInfoUUID = mawbUUID
+
+	pdfBuffer, err := h.generateCargoManifestPDF(manifest)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=cargo_manifest_preview.pdf")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+	w.Write(pdfBuffer.Bytes())
 }
 
 // Draft MAWB Handlers
@@ -851,6 +902,82 @@ func convertChargeInputsToCharges(inputs []outbound.DraftMAWBChargeInput) []outb
 		}
 	}
 	return charges
+}
+
+func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManifest) (bytes.Buffer, error) {
+	frontTHSarabunNew, err := os.ReadFile("assets/THSarabunNew.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+	frontTHSarabunNewBold, err := os.ReadFile("assets/THSarabunNew Bold.ttf")
+	if err != nil {
+		log.Println(err)
+	}
+
+	var buf bytes.Buffer
+
+	pdf := gofpdf.New("L", "mm", "A4", "")
+	pdf.AddUTF8FontFromBytes("THSarabunNew", "", frontTHSarabunNew)
+	pdf.AddUTF8FontFromBytes("THSarabunNew Bold", "", frontTHSarabunNewBold)
+
+	pdf.SetMargins(10, 10, 10)
+	pdf.AddPage()
+
+	pdf.SetFont("THSarabunNew Bold", "", 16)
+	pdf.CellFormat(0, 7, "AIR CARGO MANIFEST", "0", 1, "C", false, 0, "")
+
+	pdf.SetFont("THSarabunNew", "", 12)
+	pdf.CellFormat(0, 6, fmt.Sprintf("FLIGHT NO: %s", manifest.FlightNo), "0", 1, "R", false, 0, "")
+
+	headers := []string{"MAWB NO.", "CTNS", "WEIGHT(KG)", "ORIGIN", "DES", "SHIPPER NAME AND ADDRESS", "CONSIGNEE NAME AND ADDRESS", "NATURE OF GOODS"}
+	colWidths := []float64{25, 15, 20, 20, 20, 40, 40, 30}
+
+	pdf.SetFont("THSarabunNew Bold", "", 10)
+	for i, h := range headers {
+		pdf.CellFormat(colWidths[i], 7, h, "1", 0, "C", false, 0, "")
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("THSarabunNew", "", 10)
+	lineHeight := 5.0
+	left, _, _, _ := pdf.GetMargins()
+	for _, item := range manifest.Items {
+		values := []string{
+			item.HAWBNo,
+			item.Pkgs,
+			item.GrossWeight,
+			manifest.PortOfDischarge,
+			item.Destination,
+			item.ShipperNameAndAddress,
+			item.ConsigneeNameAndAddress,
+			item.Commodity,
+		}
+
+		maxLines := 1
+		for i, val := range values {
+			lines := pdf.SplitLines([]byte(val), colWidths[i])
+			if len(lines) > maxLines {
+				maxLines = len(lines)
+			}
+		}
+		rowHeight := float64(maxLines) * lineHeight
+		x, y := left, pdf.GetY()
+		for i, val := range values {
+			pdf.SetXY(x, y)
+			pdf.MultiCell(colWidths[i], lineHeight, val, "1", "L", false)
+			x += colWidths[i]
+		}
+		pdf.SetXY(left, y+rowHeight)
+	}
+
+	if manifest.Transshipment != "" {
+		pdf.Ln(5)
+		pdf.SetFont("THSarabunNew", "", 12)
+		pdf.CellFormat(0, 6, strings.ToUpper(manifest.Transshipment), "0", 1, "C", false, 0, "")
+	}
+
+	err = pdf.Output(&buf)
+	return buf, err
 }
 
 func (h *mawbInfoHandler) generateDraftMAWBPDF(data *outbound.DraftMAWBInput, isPreview bool) (bytes.Buffer, error) {
