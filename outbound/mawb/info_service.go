@@ -3,8 +3,8 @@ package outbound
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -99,15 +99,23 @@ func (s *service) UploadAttachment(ctx context.Context, uuid, fileOriginName str
 		}
 
 		if s.gcsClient == nil {
-			return fmt.Errorf("GCS client is not initialized")
+			localDir := filepath.Join("assets", "mawb", destinationPath)
+			if err := os.MkdirAll(localDir, os.ModePerm); err != nil {
+				return err
+			}
+			fullLocalPath := filepath.Join(localDir, newFileName)
+			if err := os.WriteFile(fullLocalPath, fileBytes, 0644); err != nil {
+				return err
+			}
+			attachmentFileUrl = fullLocalPath
+		} else {
+			_, _, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(fileBytes), fullPath, true, contentType)
+			if err != nil {
+				log.Println("err", err)
+				return err
+			}
+			attachmentFileUrl = "https://storage.googleapis.com/" + s.conf.GCSBucketName + "/" + fullPath
 		}
-		_, _, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(fileBytes), fullPath, true, contentType)
-		if err != nil {
-			log.Println("err", err)
-			return err
-		}
-
-		attachmentFileUrl = "https://storage.googleapis.com/" + s.conf.GCSBucketName + "/" + fullPath
 	}
 
 	if err := s.selfRepo.InsertAttchment(ctx, &InsertAttchmentModel{

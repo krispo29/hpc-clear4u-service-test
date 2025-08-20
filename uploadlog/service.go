@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"hpc-express-service/gcs"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -73,8 +74,31 @@ func (s *service) UploadLogFile(ctx context.Context, data *UploadFileModel) (str
 	contentType := "application/octet-stream" // default
 
 	if s.gcsClient == nil {
-		return "", fmt.Errorf("GCS client is not initialized")
+		localDir := filepath.Join("assets", "uploadlog", data.Category, data.TemplateCode)
+		if err := os.MkdirAll(localDir, os.ModePerm); err != nil {
+			return "", err
+		}
+		fullLocalPath := filepath.Join(localDir, newFileName)
+		if err := os.WriteFile(fullLocalPath, data.FileBytes, 0644); err != nil {
+			return "", err
+		}
+		loggingUploadUUID, err := s.selfRepo.Insert(ctx, &InsertModel{
+			Mawb:         data.Mawb,
+			FileName:     data.FileName,
+			FileUrl:      fullLocalPath,
+			TemplateCode: data.TemplateCode,
+			Category:     data.Category,
+			SubCategory:  data.SubCategory,
+			CreatorUUID:  data.UserUUID,
+			Status:       "created",
+			Amount:       data.Amount,
+		})
+		if err != nil {
+			return "", err
+		}
+		return loggingUploadUUID, nil
 	}
+
 	_, objAttrs, err := s.gcsClient.UploadToGCS(ctx, bytes.NewReader(data.FileBytes), fullPath, true, contentType)
 	if err != nil {
 		return "", err
