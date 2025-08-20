@@ -923,34 +923,69 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 	pdf.SetMargins(10, 10, 10)
 	pdf.AddPage()
 
+	// หัวกระดาษ
 	pdf.SetFont("THSarabunNew Bold", "", 16)
 	pdf.CellFormat(0, 7, "AIR CARGO MANIFEST", "0", 1, "C", false, 0, "")
 
+	// helper สำหรับพิมพ์ label: value ในบรรทัดเดียว (label หนา value ปกติ)
+	labelValue := func(label, value string, labelW, lineH float64) {
+		x := pdf.GetX()
+		y := pdf.GetY()
+		pdf.SetFont("THSarabunNew Bold", "", 12) // label หนา
+		pdf.CellFormat(labelW, lineH, label, "0", 0, "L", false, 0, "")
+		pdf.SetFont("THSarabunNew", "", 12) // value ปกติ
+		pdf.SetXY(x+labelW, y)
+		pdf.CellFormat(0, lineH, value, "0", 1, "L", false, 0, "")
+	}
+
+	// helper สำหรับพิมพ์ label: value แบบหลายบรรทัด
+	labelValueMulti := func(label, value string, labelW, lineH float64) {
+		x := pdf.GetX()
+		y := pdf.GetY()
+		pdf.SetFont("THSarabunNew Bold", "", 12)
+		pdf.CellFormat(labelW, lineH, label, "0", 0, "L", false, 0, "")
+		pdf.SetFont("THSarabunNew", "", 12)
+		pdf.SetXY(x+labelW, y)
+		pdf.MultiCell(0, lineH, value, "", "L", false)
+	}
+
+	// บล็อกข้อมูลหัวก่อนตาราง (ย้ายมุมขวาเหมือนเดิม)
 	pdf.SetFont("THSarabunNew", "", 12)
 	pdf.SetX(200)
-	pdf.CellFormat(0, 6, fmt.Sprintf("FLIGHT NO: %s", manifest.FlightNo), "0", 1, "L", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("MAWB NO: %s", manifest.MAWBNumber), "0", 1, "L", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("PORT OF DISCHARGE: %s", manifest.PortOfDischarge), "0", 1, "L", false, 0, "")
-	pdf.CellFormat(0, 6, fmt.Sprintf("FREIGHT DATE: %s", manifest.FreightDate), "0", 1, "L", false, 0, "")
+
+	labelW := 55.0
+	lineH := 6.0
+
+	labelValue("FLIGHT NO: ", manifest.FlightNo, labelW, lineH)
+	labelValue("MAWB NO: ", manifest.MAWBNumber, labelW, lineH)
+	labelValue("PORT OF DISCHARGE: ", manifest.PortOfDischarge, labelW, lineH)
+	labelValue("FREIGHT DATE: ", manifest.FreightDate, labelW, lineH)
+
+	// แปลง \n ที่มาจาก client ให้ขึ้นบรรทัดจริง
 	shipper := strings.ReplaceAll(manifest.Shipper, "\\n", "\n")
 	consignee := strings.ReplaceAll(manifest.Consignee, "\\n", "\n")
-	pdf.MultiCell(0, 6, fmt.Sprintf("SHIPPER: %s", shipper), "", "L", false)
-	pdf.MultiCell(0, 6, fmt.Sprintf("CONSIGNEE: %s", consignee), "", "L", false)
-	pdf.CellFormat(0, 6, fmt.Sprintf("TOTAL CTN: %s", manifest.TotalCtn), "0", 1, "L", false, 0, "")
+
+	labelValueMulti("SHIPPER: ", shipper, labelW, lineH)
+	labelValueMulti("CONSIGNEE: ", consignee, labelW, lineH)
+
+	labelValue("TOTAL CTN: ", manifest.TotalCtn, labelW, lineH)
+
 	pdf.Ln(3)
 
+	// ตารางรายการ
 	headers := []string{"HAWB NO.", "CTNS", "WEIGHT(KG)", "ORIGIN", "DES", "SHIPPER NAME AND ADDRESS", "CONSIGNEE NAME AND ADDRESS", "NATURE OF GOODS"}
 	colWidths := []float64{25, 15, 20, 20, 20, 40, 40, 30}
 
 	pdf.SetFont("THSarabunNew Bold", "", 10)
-	for i, h := range headers {
-		pdf.CellFormat(colWidths[i], 7, h, "1", 0, "C", false, 0, "")
+	for i, htxt := range headers {
+		pdf.CellFormat(colWidths[i], 7, htxt, "1", 0, "C", false, 0, "")
 	}
 	pdf.Ln(-1)
 
 	pdf.SetFont("THSarabunNew", "", 10)
 	lineHeight := 5.0
 	left, _, _, _ := pdf.GetMargins()
+
 	for _, item := range manifest.Items {
 		values := []string{
 			item.HAWBNo,
@@ -963,6 +998,7 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 			item.Commodity,
 		}
 
+		// คำนวณความสูงของแถวจากจำนวนบรรทัดมากสุดในแต่ละคอลัมน์
 		maxLines := 1
 		for i, val := range values {
 			lines := pdf.SplitLines([]byte(val), colWidths[i])
@@ -971,6 +1007,7 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 			}
 		}
 		rowHeight := float64(maxLines) * lineHeight
+
 		x, y := left, pdf.GetY()
 		for i, val := range values {
 			pdf.Rect(x, y, colWidths[i], rowHeight, "D")
@@ -981,9 +1018,10 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 		pdf.SetXY(left, y+rowHeight)
 	}
 
+	// Transshipment (ถ้ามี)
 	if manifest.Transshipment != "" {
 		pdf.Ln(5)
-		pdf.SetFont("THSarabunNew", "", 12)
+		pdf.SetFont("THSarabunNew Bold", "", 12)
 		pdf.CellFormat(0, 6, strings.ToUpper(manifest.Transshipment), "0", 1, "C", false, 0, "")
 	}
 
