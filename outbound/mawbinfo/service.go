@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"hpc-express-service/config"
 	"hpc-express-service/gcs"
+	"hpc-express-service/utils"
 	"math"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -236,42 +238,54 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 	var attachmentInfos []AttachmentInfo
 
 	if len(data.Attachments) > 0 {
-		for _, fileHeader := range data.Attachments {
-			file, err := fileHeader.Open()
+		if s.gcsClient == nil {
+			basePath := filepath.Join("assets", "mawb-info", data.Mawb, data.Date)
+			fileInfos, err := utils.UploadDocumentsToLocal(basePath, data.Attachments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to open attachment %s: %v", fileHeader.Filename, err)
-			}
-
-			// Detect content type
-			contentType := fileHeader.Header.Get("Content-Type")
-			if contentType == "" {
-				buff := make([]byte, 512)
-				n, _ := file.Read(buff)
-				contentType = http.DetectContentType(buff[:n])
-				if seeker, ok := file.(interface {
-					Seek(int64, int) (int64, error)
-				}); ok {
-					seeker.Seek(0, 0)
-				}
-			}
-			// Generate unique filename and path
-			newFileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), fileHeader.Filename)
-			fullPath := filepath.Join("mawb-info", data.Mawb, data.Date, newFileName)
-			if s.gcsClient == nil {
-				return nil, fmt.Errorf("GCS client is not initialized")
-			}
-			if _, _, err := s.gcsClient.UploadToGCS(ctx, file, fullPath, true, contentType); err != nil {
-				file.Close()
 				return nil, fmt.Errorf("failed to upload attachments: %v", err)
 			}
-			file.Close()
+			for _, info := range fileInfos {
+				attachmentInfos = append(attachmentInfos, AttachmentInfo{
+					FileName: info["fileName"].(string),
+					FileURL:  info["filePath"].(string),
+					FileSize: info["fileSize"].(int64),
+				})
+			}
+		} else {
+			for _, fileHeader := range data.Attachments {
+				file, err := fileHeader.Open()
+				if err != nil {
+					return nil, fmt.Errorf("failed to open attachment %s: %v", fileHeader.Filename, err)
+				}
 
-			fileURL := fmt.Sprintf("https://storage.googleapis.com/%s/%s", s.conf.GCSBucketName, fullPath)
-			attachmentInfos = append(attachmentInfos, AttachmentInfo{
-				FileName: newFileName,
-				FileURL:  fileURL,
-				FileSize: fileHeader.Size,
-			})
+				// Detect content type
+				contentType := fileHeader.Header.Get("Content-Type")
+				if contentType == "" {
+					buff := make([]byte, 512)
+					n, _ := file.Read(buff)
+					contentType = http.DetectContentType(buff[:n])
+					if seeker, ok := file.(interface {
+						Seek(int64, int) (int64, error)
+					}); ok {
+						seeker.Seek(0, 0)
+					}
+				}
+				// Generate unique filename and path
+				newFileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), fileHeader.Filename)
+				fullPath := filepath.Join("mawb-info", data.Mawb, data.Date, newFileName)
+				if _, _, err := s.gcsClient.UploadToGCS(ctx, file, fullPath, true, contentType); err != nil {
+					file.Close()
+					return nil, fmt.Errorf("failed to upload attachments: %v", err)
+				}
+				file.Close()
+
+				fileURL := fmt.Sprintf("https://storage.googleapis.com/%s/%s", s.conf.GCSBucketName, fullPath)
+				attachmentInfos = append(attachmentInfos, AttachmentInfo{
+					FileName: newFileName,
+					FileURL:  fileURL,
+					FileSize: fileHeader.Size,
+				})
+			}
 		}
 	}
 
@@ -320,12 +334,18 @@ func (s *service) DeleteMawbInfoAttachment(ctx context.Context, uuid string, fil
 		return err // Repository error (e.g., not found)
 	}
 
-	// If file path is not empty, delete the file from local storage
-	if fileURL != "" && s.gcsClient != nil {
-		prefix := fmt.Sprintf("https://storage.googleapis.com/%s/", s.conf.GCSBucketName)
-		objectName := strings.TrimPrefix(fileURL, prefix)
-		if err := s.gcsClient.DeleteImage(objectName); err != nil {
-			fmt.Printf("warning: failed to delete attachment file '%s': %v\n", objectName, err)
+	// If file path is not empty, delete the file from storage
+	if fileURL != "" {
+		if s.gcsClient != nil {
+			prefix := fmt.Sprintf("https://storage.googleapis.com/%s/", s.conf.GCSBucketName)
+			objectName := strings.TrimPrefix(fileURL, prefix)
+			if err := s.gcsClient.DeleteImage(objectName); err != nil {
+				fmt.Printf("warning: failed to delete attachment file '%s': %v\n", objectName, err)
+			}
+		} else {
+			if err := os.Remove(fileURL); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("warning: failed to delete attachment file '%s': %v\n", fileURL, err)
+			}
 		}
 	}
 
