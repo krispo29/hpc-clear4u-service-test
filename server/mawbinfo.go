@@ -932,8 +932,10 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 	pdf.CellFormat(0, 6, fmt.Sprintf("MAWB NO: %s", manifest.MAWBNumber), "0", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("PORT OF DISCHARGE: %s", manifest.PortOfDischarge), "0", 1, "L", false, 0, "")
 	pdf.CellFormat(0, 6, fmt.Sprintf("FREIGHT DATE: %s", manifest.FreightDate), "0", 1, "L", false, 0, "")
-	pdf.MultiCell(0, 6, fmt.Sprintf("SHIPPER:\n%s", manifest.Shipper), "", "L", false)
-	pdf.MultiCell(0, 6, fmt.Sprintf("CONSIGNEE:\n%s", manifest.Consignee), "", "L", false)
+	shipper := strings.ReplaceAll(manifest.Shipper, "\\n", "\n")
+	consignee := strings.ReplaceAll(manifest.Consignee, "\\n", "\n")
+	pdf.MultiCell(0, 6, fmt.Sprintf("SHIPPER: %s", shipper), "", "L", false)
+	pdf.MultiCell(0, 6, fmt.Sprintf("CONSIGNEE: %s", consignee), "", "L", false)
 	pdf.CellFormat(0, 6, fmt.Sprintf("TOTAL CTN: %s", manifest.TotalCtn), "0", 1, "L", false, 0, "")
 	pdf.Ln(3)
 
@@ -956,8 +958,8 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 			item.GrossWeight,
 			manifest.PortOfDischarge,
 			item.Destination,
-			item.ShipperNameAndAddress,
-			item.ConsigneeNameAndAddress,
+			strings.ReplaceAll(item.ShipperNameAndAddress, "\\n", "\n"),
+			strings.ReplaceAll(item.ConsigneeNameAndAddress, "\\n", "\n"),
 			item.Commodity,
 		}
 
