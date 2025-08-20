@@ -179,7 +179,8 @@ func UploadDocumentsToLocal(path string, files []*multipart.FileHeader) ([]map[s
 		// Generate unique filename
 		newFileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), fileHeader.Filename)
 		fullPath := filepath.Join(path, newFileName)
-
+		// Ensure returned file paths use forward slashes for URL compatibility
+		urlPath := filepath.ToSlash(fullPath)
 		// Create the file
 		f, err := os.Create(fullPath)
 		if err != nil {
@@ -199,7 +200,7 @@ func UploadDocumentsToLocal(path string, files []*multipart.FileHeader) ([]map[s
 			"originalName": fileHeader.Filename,
 			"fileSize":     fileHeader.Size,
 			"contentType":  filetype,
-			"filePath":     fullPath,
+			"filePath":     urlPath,
 		}
 		fileInfoList = append(fileInfoList, fileInfo)
 	}
