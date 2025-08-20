@@ -90,8 +90,11 @@ func (s *cargoManifestService) UpdateCargoManifest(ctx context.Context, manifest
 
 	// Set the UUID from existing record for update
 	manifest.UUID = existing.UUID
-	manifest.StatusUUID = existing.StatusUUID
 
+	// Always reset status to default (Draft) when updating
+	if err := s.setDefaultStatus(txCtx, manifest); err != nil {
+		return nil, err
+	}
 	result, err := s.repo.Update(txCtx, manifest)
 	if err != nil {
 		return nil, err
