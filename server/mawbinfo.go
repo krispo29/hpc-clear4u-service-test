@@ -971,8 +971,9 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *outbound.CargoManif
 		rowHeight := float64(maxLines) * lineHeight
 		x, y := left, pdf.GetY()
 		for i, val := range values {
+			pdf.Rect(x, y, colWidths[i], rowHeight, "D")
 			pdf.SetXY(x, y)
-			pdf.MultiCell(colWidths[i], lineHeight, val, "1", "L", false)
+			pdf.MultiCell(colWidths[i], lineHeight, val, "", "L", false)
 			x += colWidths[i]
 		}
 		pdf.SetXY(left, y+rowHeight)
