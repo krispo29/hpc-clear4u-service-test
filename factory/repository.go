@@ -13,6 +13,7 @@ import (
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
+	weightSlip "hpc-express-service/outbound/weightSlip"
 	"hpc-express-service/setting"
 	"hpc-express-service/ship2cu"
 	"hpc-express-service/shopee"
@@ -41,6 +42,7 @@ type RepositoryFactory struct {
 	SettingRepo                   setting.Repository
 	CargoManifestRepo             cargoManifest.CargoManifestRepository
 	DraftMAWBRepo                 draftMawb.DraftMAWBRepository
+	WeightSlipRepo                weightSlip.WeightSlipRepository
 	MasterStatusRepo              setting.MasterStatusRepository
 }
 
@@ -66,6 +68,7 @@ func NewRepositoryFactory() *RepositoryFactory {
 		SettingRepo:                   setting.NewRepository(timeoutContext),
 		CargoManifestRepo:             cargoManifest.NewCargoManifestRepository(),
 		DraftMAWBRepo:                 draftMawb.NewDraftMAWBRepository(),
+		WeightSlipRepo:                weightSlip.NewWeightSlipRepository(),
 		MasterStatusRepo:              setting.NewMasterStatusRepository(),
 	}
 }

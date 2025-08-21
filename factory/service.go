@@ -17,6 +17,7 @@ import (
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
+	weightSlip "hpc-express-service/outbound/weightSlip"
 	"hpc-express-service/setting"
 	"hpc-express-service/ship2cu"
 	"hpc-express-service/shopee"
@@ -44,6 +45,7 @@ type ServiceFactory struct {
 	SettingSvc                setting.Service
 	CargoManifestSvc          cargoManifest.CargoManifestService
 	DraftMAWBSvc              draftMawb.DraftMAWBService
+	WeightSlipSvc             weightSlip.WeightSlipService
 	MasterStatusSvc           setting.MasterStatusService
 }
 
@@ -170,6 +172,9 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// Draft MAWB
 	draftMAWBSvc := draftMawb.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
 
+	// Weight Slip
+	weightSlipSvc := weightSlip.NewWeightSlipService(repo.WeightSlipRepo, masterStatusSvc)
+
 	return &ServiceFactory{
 		AuthSvc:                   authSvc,
 		CommonSvc:                 commonSvc,
@@ -189,6 +194,7 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		SettingSvc:                settingSvc,
 		CargoManifestSvc:          cargoManifestSvc,
 		DraftMAWBSvc:              draftMAWBSvc,
+		WeightSlipSvc:             weightSlipSvc,
 		MasterStatusSvc:           masterStatusSvc,
 	}
 }
