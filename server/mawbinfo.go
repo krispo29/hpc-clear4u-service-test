@@ -6,6 +6,7 @@ import (
 	"fmt"
 	cargoManifest "hpc-express-service/outbound/cargoManifest"
 	draftMawb "hpc-express-service/outbound/draftMawb"
+	weightslip "hpc-express-service/outbound/weightSlip"
 	"hpc-express-service/setting"
 	"log"
 	"net/http"
@@ -24,6 +25,7 @@ type mawbInfoHandler struct {
 	s                mawbinfo.Service
 	cargoManifestSvc cargoManifest.CargoManifestService
 	draftMAWBSvc     draftMawb.DraftMAWBService
+	weightslipSvc    weightslip.WeightSlipService
 	statusSvc        setting.MasterStatusService
 }
 
@@ -55,6 +57,18 @@ func (h *mawbInfoHandler) router() chi.Router {
 		r.Post("/cargo-manifest/reject", h.rejectCargoManifest)
 		r.Get("/cargo-manifest/print", h.printCargoManifest)
 		r.Post("/cargo-manifest/preview", h.previewCargoManifest)
+
+		// Weight Slip Routes
+		r.Get("/weight-slip", h.getWeightslip)
+		r.Post("/weight-slip", h.createWeightslip)
+		r.Put("/weight-slip", h.updateWeightslip)
+		r.Post("/weight-slip/send-customer", h.sendWeightslipToCustomer)
+		r.Post("/weight-slip/customer-confirm", h.customerConfirmWeightslip)
+		r.Post("/weight-slip/customer-reject", h.customerRejectWeightslip)
+		r.Post("/weight-slip/confirm", h.confirmWeightslip)
+		r.Post("/weight-slip/reject", h.rejectWeightslip)
+		r.Get("/weight-slip/print", h.printWeightslip)
+		r.Post("/weight-slip/preview", h.previewWeightslip)
 
 		// Draft MAWB Routes
 		r.Get("/draft-mawb", h.getDraftMAWB)
@@ -312,6 +326,244 @@ func (h *mawbInfoHandler) previewCargoManifest(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", "inline; filename=cargo_manifest_preview.pdf")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+	w.Write(pdfBuffer.Bytes())
+}
+
+// Weight Slip Handlers
+
+func (h *mawbInfoHandler) getWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	ws, err := h.weightslipSvc.GetWeightSlipByMAWBUUID(r.Context(), mawbUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if ws == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Weight Slip not found for this MAWB"})
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(ws, "Success"))
+}
+
+func (h *mawbInfoHandler) createWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	data := &weightslip.WeightSlip{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	data.MAWBInfoUUID = mawbUUID
+
+	result, err := h.weightslipSvc.CreateWeightSlip(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Weight Slip created successfully"))
+}
+
+func (h *mawbInfoHandler) updateWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	data := &weightslip.WeightSlip{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	data.MAWBInfoUUID = mawbUUID
+
+	result, err := h.weightslipSvc.UpdateWeightSlip(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "Weight Slip updated successfully"))
+}
+
+func (h *mawbInfoHandler) sendWeightslipToCustomer(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "WS_AwaitingCustomer", "weight_slip")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'WS_AwaitingCustomer' not found")))
+		return
+	}
+	err = h.weightslipSvc.UpdateWeightSlipStatus(r.Context(), mawbUUID, status.UUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Weight Slip sent to customer for confirmation"))
+}
+
+func (h *mawbInfoHandler) customerConfirmWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "WS_CustomerConfirmed", "weight_slip")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'WS_CustomerConfirmed' not found")))
+		return
+	}
+	err = h.weightslipSvc.UpdateWeightSlipStatus(r.Context(), mawbUUID, status.UUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Weight Slip confirmed by customer"))
+}
+
+func (h *mawbInfoHandler) customerRejectWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "WS_CustomerRejected", "weight_slip")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'WS_CustomerRejected' not found")))
+		return
+	}
+	err = h.weightslipSvc.UpdateWeightSlipStatus(r.Context(), mawbUUID, status.UUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Weight Slip rejected by customer"))
+}
+
+func (h *mawbInfoHandler) confirmWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "WS_Confirmed", "weight_slip")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'WS_Confirmed' not found")))
+		return
+	}
+	err = h.weightslipSvc.UpdateWeightSlipStatus(r.Context(), mawbUUID, status.UUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Weight Slip confirmed successfully"))
+}
+
+func (h *mawbInfoHandler) rejectWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+	status, err := h.statusSvc.GetStatusByNameAndType(r.Context(), "WS_Rejected", "weight_slip")
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if status == nil {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("status 'WS_Rejected' not found")))
+		return
+	}
+	err = h.weightslipSvc.UpdateWeightSlipStatus(r.Context(), mawbUUID, status.UUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	render.Respond(w, r, SuccessResponse(nil, "Weight Slip rejected successfully"))
+}
+
+func (h *mawbInfoHandler) printWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	ws, err := h.weightslipSvc.GetWeightSlipByMAWBUUID(r.Context(), mawbUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if ws == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Weight Slip not found for this MAWB"})
+		return
+	}
+
+	pdfBuffer, err := h.generateWeightSlipPDF(ws)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=weight_slip.pdf")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
+	w.Write(pdfBuffer.Bytes())
+}
+
+func (h *mawbInfoHandler) previewWeightslip(w http.ResponseWriter, r *http.Request) {
+	mawbUUID := chi.URLParam(r, "uuid")
+	if mawbUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("uuid parameter is required")))
+		return
+	}
+
+	ws := &weightslip.WeightSlip{}
+	if err := render.Bind(r, ws); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	ws.MAWBInfoUUID = mawbUUID
+
+	pdfBuffer, err := h.generateWeightSlipPDF(ws)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=weight_slip_preview.pdf")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
 	w.Write(pdfBuffer.Bytes())
 }
@@ -1027,6 +1279,16 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *cargoManifest.Cargo
 	}
 
 	err = pdf.Output(&buf)
+	return buf, err
+}
+
+func (h *mawbInfoHandler) generateWeightSlipPDF(ws *weightslip.WeightSlip) (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(40, 10, "Weight Slip")
+	err := pdf.Output(&buf)
 	return buf, err
 }
 
