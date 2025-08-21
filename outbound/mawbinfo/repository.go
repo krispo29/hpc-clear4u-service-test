@@ -155,37 +155,41 @@ func (r repository) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResp
 
 	var response MawbInfoResponse
 	var attachmentsStr string
-
+	var hasDraft, hasCargo bool
 	// Build query based on whether attachments column exists
 	var sqlStr string
 	if r.hasAttachmentsColumn(ctx, db) {
 		sqlStr = `
-			SELECT 
-				uuid, 
-				chargeable_weight, 
-				date, 
-				mawb, 
-				service_type, 
-				shipping_type,
-				COALESCE(attachments::text, '[]') as attachments,
-				to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at
-			FROM tbl_mawb_info 
-			WHERE uuid = ?
-		`
+			    SELECT
+                               uuid,
+                               chargeable_weight,
+                               date,
+                               mawb,
+                               service_type,
+                               shipping_type,
+                               COALESCE(attachments::text, '[]') as attachments,
+                               to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+                               EXISTS (SELECT 1 FROM draft_mawb dm WHERE dm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_draft,
+                               EXISTS (SELECT 1 FROM cargo_manifest cm WHERE cm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_cargo
+                       FROM tbl_mawb_info
+                       WHERE uuid = ?
+               `
 	} else {
 		sqlStr = `
-			SELECT 
-				uuid, 
-				chargeable_weight, 
-				date, 
-				mawb, 
-				service_type, 
-				shipping_type,
-				'[]' as attachments,
-				to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at
-			FROM tbl_mawb_info 
-			WHERE uuid = ?
-		`
+		        SELECT
+                               uuid,
+                               chargeable_weight,
+                               date,
+                               mawb,
+                               service_type,
+                               shipping_type,
+                               '[]' as attachments,
+                               to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+                               EXISTS (SELECT 1 FROM draft_mawb dm WHERE dm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_draft,
+                               EXISTS (SELECT 1 FROM cargo_manifest cm WHERE cm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_cargo
+                       FROM tbl_mawb_info
+                       WHERE uuid = ?
+               `
 	}
 
 	sqlStr = utils.ReplaceSQL(sqlStr, "?")
@@ -204,12 +208,17 @@ func (r repository) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResp
 		&response.ShippingType,
 		&attachmentsStr,
 		&response.CreatedAt,
+		&hasDraft,
+		&hasCargo,
 	), uuid)
 
 	if err != nil {
 		return nil, utils.PostgresErrorTransform(err)
 	}
-
+	response.PrintOptions = PrintOptions{
+		DraftMawb:     hasDraft,
+		CargoManifest: hasCargo,
+	}
 	// Parse attachments JSON
 	if attachmentsStr != "" && attachmentsStr != "[]" {
 		err = json.Unmarshal([]byte(attachmentsStr), &response.Attachments)
@@ -239,28 +248,32 @@ func (r repository) GetAllMawbInfo(ctx context.Context, startDate, endDate strin
 	var sqlStr string
 	if r.hasAttachmentsColumn(ctx, db) {
 		sqlStr = `
-			SELECT 
-				uuid, 
-				chargeable_weight, 
-				date, 
-				mawb, 
-				service_type, 
-				shipping_type,
-				COALESCE(attachments::text, '[]') as attachments,
-				to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at
-			FROM tbl_mawb_info`
+			   SELECT
+                               uuid,
+                               chargeable_weight,
+                               date,
+                               mawb,
+                               service_type,
+                               shipping_type,
+                               COALESCE(attachments::text, '[]') as attachments,
+                               to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+                               EXISTS (SELECT 1 FROM draft_mawb dm WHERE dm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_draft,
+                               EXISTS (SELECT 1 FROM cargo_manifest cm WHERE cm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_cargo
+                       FROM tbl_mawb_info`
 	} else {
 		sqlStr = `
-			SELECT 
-				uuid, 
-				chargeable_weight, 
-				date, 
-				mawb, 
-				service_type, 
-				shipping_type,
-				'[]' as attachments,
-				to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at
-			FROM tbl_mawb_info`
+		      SELECT
+                               uuid,
+                               chargeable_weight,
+                               date,
+                               mawb,
+                               service_type,
+                               shipping_type,
+                               '[]' as attachments,
+                               to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+                               EXISTS (SELECT 1 FROM draft_mawb dm WHERE dm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_draft,
+                               EXISTS (SELECT 1 FROM cargo_manifest cm WHERE cm.mawb_info_uuid = tbl_mawb_info.uuid) AS has_cargo
+                       FROM tbl_mawb_info`
 	}
 
 	var whereConditions []string
@@ -291,6 +304,8 @@ func (r repository) GetAllMawbInfo(ctx context.Context, startDate, endDate strin
 		ShippingType     string  `pg:"shipping_type"`
 		AttachmentsStr   string  `pg:"attachments"`
 		CreatedAt        string  `pg:"created_at"`
+		HasDraft         bool    `pg:"has_draft"`
+		HasCargo         bool    `pg:"has_cargo"`
 	}
 
 	var tempResponses []tempResponse
@@ -309,6 +324,10 @@ func (r repository) GetAllMawbInfo(ctx context.Context, startDate, endDate strin
 			ServiceType:      temp.ServiceType,
 			ShippingType:     temp.ShippingType,
 			CreatedAt:        temp.CreatedAt,
+			PrintOptions: PrintOptions{
+				DraftMawb:     temp.HasDraft,
+				CargoManifest: temp.HasCargo,
+			},
 		}
 
 		// Parse attachments JSON

@@ -29,6 +29,7 @@ type MawbInfoResponse struct {
 	ShippingType     string           `json:"shippingType"`
 	CreatedAt        string           `json:"createdAt"`
 	Attachments      []AttachmentInfo `json:"attachments,omitempty"`
+	PrintOptions     PrintOptions     `json:"printOptions"`
 }
 
 // AttachmentInfo represents file attachment information
@@ -36,6 +37,12 @@ type AttachmentInfo struct {
 	FileName string `json:"fileName"`
 	FileURL  string `json:"fileUrl"`
 	FileSize int64  `json:"fileSize"`
+}
+
+// PrintOptions indicates which printable documents exist for a MAWB
+type PrintOptions struct {
+	CargoManifest bool `json:"cargoManifest"`
+	DraftMawb     bool `json:"draftMawb"`
 }
 
 // UpdateMawbInfoRequest represents the request payload for updating MAWB info
