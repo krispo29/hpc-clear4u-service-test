@@ -12,7 +12,8 @@ import (
 	"hpc-express-service/gcs"
 	inbound "hpc-express-service/inbound/express"
 	"hpc-express-service/mawb"
-	"hpc-express-service/outbound"
+	cargoManifest "hpc-express-service/outbound/cargoManifest"
+	draftMawb "hpc-express-service/outbound/draftMawb"
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
@@ -41,8 +42,8 @@ type ServiceFactory struct {
 	DashboardSvc              dashboard.Service
 	UserSvc                   user.Service
 	SettingSvc                setting.Service
-	CargoManifestSvc          outbound.CargoManifestService
-	DraftMAWBSvc              outbound.DraftMAWBService
+	CargoManifestSvc          cargoManifest.CargoManifestService
+	DraftMAWBSvc              draftMawb.DraftMAWBService
 	MasterStatusSvc           setting.MasterStatusService
 }
 
@@ -164,10 +165,10 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	)
 
 	// Cargo Manifest
-	cargoManifestSvc := outbound.NewCargoManifestService(repo.CargoManifestRepo, masterStatusSvc)
+	cargoManifestSvc := cargoManifest.NewCargoManifestService(repo.CargoManifestRepo, masterStatusSvc)
 
 	// Draft MAWB
-	draftMAWBSvc := outbound.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
+	draftMAWBSvc := draftMawb.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
 
 	return &ServiceFactory{
 		AuthSvc:                   authSvc,
