@@ -12,8 +12,8 @@ import (
 	"hpc-express-service/gcs"
 	inbound "hpc-express-service/inbound/express"
 	"hpc-express-service/mawb"
-	cargomanifest "hpc-express-service/outbound/cargomanifest"
-	draftmawb "hpc-express-service/outbound/draftmawb"
+	cargoManifest "hpc-express-service/outbound/cargoManifest"
+	draftMawb "hpc-express-service/outbound/draftMawb"
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
@@ -43,8 +43,8 @@ type ServiceFactory struct {
 	DashboardSvc              dashboard.Service
 	UserSvc                   user.Service
 	SettingSvc                setting.Service
-	CargoManifestSvc          cargomanifest.CargoManifestService
-	DraftMAWBSvc              draftmawb.DraftMAWBService
+	CargoManifestSvc          cargoManifest.CargoManifestService
+	DraftMAWBSvc              draftMawb.DraftMAWBService
 	WeightSlipSvc             weightSlip.WeightSlipService
 	MasterStatusSvc           setting.MasterStatusService
 }
@@ -167,10 +167,10 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	)
 
 	// Cargo Manifest
-	cargoManifestSvc := cargomanifest.NewCargoManifestService(repo.CargoManifestRepo, masterStatusSvc)
+	cargoManifestSvc := cargoManifest.NewCargoManifestService(repo.CargoManifestRepo, masterStatusSvc)
 
 	// Draft MAWB
-	draftMAWBSvc := draftmawb.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
+	draftMAWBSvc := draftMawb.NewDraftMAWBService(repo.DraftMAWBRepo, masterStatusSvc)
 
 	// Weight Slip
 	weightSlipSvc := weightSlip.NewWeightSlipService(repo.WeightSlipRepo, masterStatusSvc)

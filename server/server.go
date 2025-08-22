@@ -19,7 +19,7 @@ import (
 
 	"hpc-express-service/constant"
 	"hpc-express-service/factory"
-	draftmawb "hpc-express-service/outbound/draftmawb"
+	draftMawb "hpc-express-service/outbound/draftMawb"
 )
 
 type Server struct {
@@ -207,7 +207,7 @@ func New(
 			return
 		}
 
-		data := &draftmawb.DraftMAWB{}
+		data := &draftMawb.DraftMAWB{}
 		if err := render.Bind(r, data); err != nil {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return
@@ -217,7 +217,7 @@ func New(
 		// Check if draft MAWB already exists for this MAWB UUID
 		existing, _ := s.svcFactory.DraftMAWBSvc.GetDraftMAWBByMAWBUUID(r.Context(), mawbUUID)
 
-		var result *draftmawb.DraftMAWB
+		var result *draftMawb.DraftMAWB
 		var err error
 		if existing != nil {
 			// Update existing draft MAWB
@@ -243,7 +243,7 @@ func New(
 			return
 		}
 
-		data := &draftmawb.DraftMAWB{}
+		data := &draftMawb.DraftMAWB{}
 		if err := render.Bind(r, data); err != nil {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return

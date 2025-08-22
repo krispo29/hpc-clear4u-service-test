@@ -1,4 +1,4 @@
-package cargomanifest
+package outbound
 
 import (
 	"context"

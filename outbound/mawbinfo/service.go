@@ -71,21 +71,16 @@ func (s *service) CreateMawbInfo(ctx context.Context, data *CreateMawbInfoReques
 		return nil, err
 	}
 
-	// Normalize date to YYYY-MM-DD for storage
-	normalizedDate, err := s.normalizeInputDate(data.Date)
-	if err != nil {
+	// Validate date format
+	if err := s.validateDateFormat(data.Date); err != nil {
 		return nil, err
 	}
-	data.Date = normalizedDate
 
 	// Call repository to create MAWB info
 	result, err := s.selfRepo.CreateMawbInfo(ctx, data, chargeableWeight)
 	if err != nil {
 		return nil, err
 	}
-
-	// Format date for response as DD/MM/YYYY
-	result.Date = s.formatOutputDate(result.Date)
 
 	return result, nil
 }
@@ -152,29 +147,21 @@ func (s *service) convertChargeableWeight(weightStr string) (float64, error) {
 	return weight, nil
 }
 
-// normalizeInputDate parses date in DD/MM/YYYY format and returns YYYY-MM-DD
-func (s *service) normalizeInputDate(dateStr string) (string, error) {
+// validateDateFormat validates date format YYYY-MM-DD
+func (s *service) validateDateFormat(dateStr string) error {
 	dateStr = strings.TrimSpace(dateStr)
+
 	if dateStr == "" {
-		return "", errors.New("date cannot be empty")
+		return errors.New("date cannot be empty")
 	}
 
-	t, err := time.Parse("02/01/2006", dateStr)
+	// Parse date in YYYY-MM-DD format
+	_, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid date format, expected DD/MM/YYYY: %s", dateStr)
+		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %s", dateStr)
 	}
 
-	return t.Format("2006-01-02"), nil
-}
-
-// formatOutputDate converts YYYY-MM-DD to DD/MM/YYYY for responses
-func (s *service) formatOutputDate(dateStr string) string {
-	dateStr = strings.TrimSpace(dateStr)
-	t, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		return dateStr
-	}
-	return t.Format("02/01/2006")
+	return nil
 }
 func (s *service) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
@@ -189,8 +176,6 @@ func (s *service) GetMawbInfo(ctx context.Context, uuid string) (*MawbInfoRespon
 		return nil, err
 	}
 
-	result.Date = s.formatOutputDate(result.Date)
-
 	return result, nil
 }
 
@@ -198,18 +183,15 @@ func (s *service) GetAllMawbInfo(ctx context.Context, startDate, endDate string)
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
-	// Normalize date formats if provided
-	var err error
+	// Validate date formats if provided
 	if startDate != "" {
-		startDate, err = s.normalizeInputDate(startDate)
-		if err != nil {
+		if err := s.validateDateFormat(startDate); err != nil {
 			return nil, fmt.Errorf("invalid start date: %v", err)
 		}
 	}
 
 	if endDate != "" {
-		endDate, err = s.normalizeInputDate(endDate)
-		if err != nil {
+		if err := s.validateDateFormat(endDate); err != nil {
 			return nil, fmt.Errorf("invalid end date: %v", err)
 		}
 	}
@@ -217,10 +199,6 @@ func (s *service) GetAllMawbInfo(ctx context.Context, startDate, endDate string)
 	result, err := s.selfRepo.GetAllMawbInfo(ctx, startDate, endDate)
 	if err != nil {
 		return nil, err
-	}
-
-	for _, r := range result {
-		r.Date = s.formatOutputDate(r.Date)
 	}
 
 	return result, nil
@@ -252,12 +230,10 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 		return nil, err
 	}
 
-	// Normalize date to YYYY-MM-DD for storage
-	normalizedDate, err := s.normalizeInputDate(data.Date)
-	if err != nil {
+	// Validate date format
+	if err := s.validateDateFormat(data.Date); err != nil {
 		return nil, err
 	}
-	data.Date = normalizedDate
 
 	// Handle file attachments if present
 	var attachmentInfos []AttachmentInfo
@@ -325,8 +301,6 @@ func (s *service) UpdateMawbInfo(ctx context.Context, uuid string, data *UpdateM
 	}
 
 	fmt.Printf("DEBUG: Repository result attachments count: %d\n", len(result.Attachments))
-
-	result.Date = s.formatOutputDate(result.Date)
 
 	return result, nil
 }
