@@ -13,6 +13,7 @@ type CargoManifestService interface {
 	CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error
+	GetAllCargoManifest(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error)
 }
 
 type cargoManifestService struct {
@@ -135,4 +136,8 @@ func (s *cargoManifestService) UpdateCargoManifestStatus(ctx context.Context, ma
 	}
 
 	return tx.Commit()
+}
+
+func (s *cargoManifestService) GetAllCargoManifest(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error) {
+	return s.repo.GetAll(ctx, startDate, endDate)
 }

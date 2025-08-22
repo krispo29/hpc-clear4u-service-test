@@ -3,6 +3,7 @@ package cargomanifest
 import (
 	"context"
 	"hpc-express-service/common"
+	"strings"
 	"time"
 
 	"github.com/go-pg/pg/v9"
@@ -14,6 +15,7 @@ type CargoManifestRepository interface {
 	GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error)
 	Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error)
 }
 
 type cargoManifestRepository struct{}
@@ -145,4 +147,50 @@ func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoMan
 
 	// return ตัวเต็มล่าสุด
 	return r.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
+}
+
+func (r *cargoManifestRepository) GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []CargoManifestListItem
+
+	baseQuery := `
+               SELECT
+                       cm.uuid::text,
+                       cm.mawb_info_uuid::text,
+                       COALESCE(cm.mawb_number, '') AS mawb_number,
+                       COALESCE(cm.flight_no, '') AS flight_no,
+                       COALESCE(cm.shipper, '') AS shipper,
+                       COALESCE(cm.consignee, '') AS consignee,
+                       TO_CHAR(cm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') AS created_at,
+                       COALESCE(ms.name, 'Draft') AS status
+               FROM public.cargo_manifest cm
+               LEFT JOIN public.master_status ms ON cm.status_uuid = ms.uuid
+       `
+
+	var whereConditions []string
+	var args []interface{}
+	if startDate != "" {
+		whereConditions = append(whereConditions, "DATE(cm.created_at AT TIME ZONE 'Asia/Bangkok') >= ?")
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		whereConditions = append(whereConditions, "DATE(cm.created_at AT TIME ZONE 'Asia/Bangkok') <= ?")
+		args = append(args, endDate)
+	}
+	query := baseQuery
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+	query += " ORDER BY cm.created_at DESC"
+
+	_, err = db.Query(&items, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }

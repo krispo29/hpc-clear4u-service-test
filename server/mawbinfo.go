@@ -37,6 +37,12 @@ func (h *mawbInfoHandler) router() chi.Router {
 	// Draft MAWB List Route (without uuid parameter)
 	r.Get("/draft-mawb", h.getAllDraftMAWB)
 
+	// Cargo manifest List Route (without uuid parameter)
+	r.Get("/cargo-manifest", h.getAllCargoManifest)
+
+	// Weight Slip List Route (without uuid parameter)
+	r.Get("/weight-slip", h.getAllWeightSlip)
+
 	// Draft MAWB Detail Route by draft UUID (not mawb_info_uuid)
 	r.Get("/draft-mawb/{draft_uuid}", h.getDraftMAWBByUUID)
 
@@ -357,6 +363,19 @@ func (h *mawbInfoHandler) previewCargoManifest(w http.ResponseWriter, r *http.Re
 	w.Write(pdfBuffer.Bytes())
 }
 
+func (h *mawbInfoHandler) getAllCargoManifest(w http.ResponseWriter, r *http.Request) {
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+
+	manifests, err := h.cargoManifestSvc.GetAllCargoManifest(r.Context(), startDate, endDate)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(manifests, "Success"))
+}
+
 // Weight Slip Handlers
 
 func (h *mawbInfoHandler) getWeightslip(w http.ResponseWriter, r *http.Request) {
@@ -614,6 +633,19 @@ func (h *mawbInfoHandler) previewWeightslip(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Disposition", "inline; filename=weight_slip_preview.pdf")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", pdfBuffer.Len()))
 	w.Write(pdfBuffer.Bytes())
+}
+
+func (h *mawbInfoHandler) getAllWeightSlip(w http.ResponseWriter, r *http.Request) {
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+
+	slips, err := h.weightslipSvc.GetAllWeightSlip(r.Context(), startDate, endDate)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(slips, "Success"))
 }
 
 // Draft MAWB Handlers
