@@ -11,6 +11,7 @@ import (
 
 type WeightSlipRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*WeightSlip, error)
+	GetByUUID(ctx context.Context, uuid string) (*WeightSlip, error)
 	Create(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	Update(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 }
@@ -49,6 +50,37 @@ func (r *weightSlipRepository) GetByMAWBUUID(ctx context.Context, mawbUUID strin
 	}
 
 	// map nested structs
+	ws.AfterSelect(nil)
+
+	return ws, nil
+}
+
+func (r *weightSlipRepository) GetByUUID(ctx context.Context, uuid string) (*WeightSlip, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ws := &WeightSlip{}
+	err = db.Model(ws).
+		Column("weight_slip.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = weight_slip.status_uuid").
+		Where("weight_slip.uuid = ?", uuid).
+		Select()
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := db.Model(&ws.Dimensions).
+		Where("weightslip_uuid = ?", ws.UUID).
+		Select(); err != nil {
+		return nil, err
+	}
+
 	ws.AfterSelect(nil)
 
 	return ws, nil

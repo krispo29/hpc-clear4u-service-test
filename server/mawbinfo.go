@@ -40,6 +40,12 @@ func (h *mawbInfoHandler) router() chi.Router {
 	// Draft MAWB Detail Route by draft UUID (not mawb_info_uuid)
 	r.Get("/draft-mawb/{draft_uuid}", h.getDraftMAWBByUUID)
 
+	// Cargo manifest Detail Route by cargo manifest UUID (not mawb_info_uuid)
+	r.Get("/cargo-manifest/{cargo_manifest_uuid}", h.getCargoManifestByUUID)
+
+	// Weight Slip Detail Route by weight slip UUID (not mawb_info_uuid)
+	r.Get("/weight-slip/{weight_slip_uuid}", h.getWeightSlipByUUID)
+
 	r.Route("/{uuid}", func(r chi.Router) {
 		r.Get("/", h.getMawbInfo)
 		r.Put("/", h.updateMawbInfo)
@@ -106,6 +112,27 @@ func (h *mawbInfoHandler) getCargoManifest(w http.ResponseWriter, r *http.Reques
 	}
 	if manifest == nil {
 		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Cargo Manifest not found for this MAWB"})
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(manifest, "Success"))
+}
+
+// getCargoManifestByUUID retrieves a cargo manifest using its own UUID instead of the MAWB info UUID.
+func (h *mawbInfoHandler) getCargoManifestByUUID(w http.ResponseWriter, r *http.Request) {
+	manifestUUID := chi.URLParam(r, "cargo_manifest_uuid")
+	if manifestUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("cargo_manifest_uuid parameter is required")))
+		return
+	}
+
+	manifest, err := h.cargoManifestSvc.GetCargoManifestByUUID(r.Context(), manifestUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if manifest == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Cargo Manifest not found"})
 		return
 	}
 
@@ -346,6 +373,27 @@ func (h *mawbInfoHandler) getWeightslip(w http.ResponseWriter, r *http.Request) 
 	}
 	if ws == nil {
 		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Weight Slip not found for this MAWB"})
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(ws, "Success"))
+}
+
+// getWeightSlipByUUID retrieves a weight slip using its own UUID instead of the MAWB info UUID.
+func (h *mawbInfoHandler) getWeightSlipByUUID(w http.ResponseWriter, r *http.Request) {
+	wsUUID := chi.URLParam(r, "weight_slip_uuid")
+	if wsUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("weight_slip_uuid parameter is required")))
+		return
+	}
+
+	ws, err := h.weightslipSvc.GetWeightSlipByUUID(r.Context(), wsUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if ws == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Weight Slip not found"})
 		return
 	}
 

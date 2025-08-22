@@ -11,6 +11,7 @@ import (
 
 type CargoManifestRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error)
 	Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 }
@@ -43,6 +44,35 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	}
 
 	// eager load items
+	if err := db.Model(&manifest.Items).
+		Where("cargo_manifest_uuid = ?", manifest.UUID).
+		Select(); err != nil {
+		return nil, err
+	}
+
+	return manifest, nil
+}
+
+func (r *cargoManifestRepository) GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := &CargoManifest{}
+	err = db.Model(manifest).
+		Column("cargo_manifest.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
+		Where("cargo_manifest.uuid = ?", uuid).
+		Select()
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
 	if err := db.Model(&manifest.Items).
 		Where("cargo_manifest_uuid = ?", manifest.UUID).
 		Select(); err != nil {
