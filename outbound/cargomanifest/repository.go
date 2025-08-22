@@ -3,6 +3,7 @@ package cargomanifest
 import (
 	"context"
 	"hpc-express-service/common"
+	"strings"
 	"time"
 
 	"github.com/go-pg/pg/v9"
@@ -11,8 +12,10 @@ import (
 
 type CargoManifestRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error)
 	Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
+	GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error)
 }
 
 type cargoManifestRepository struct{}
@@ -43,6 +46,35 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	}
 
 	// eager load items
+	if err := db.Model(&manifest.Items).
+		Where("cargo_manifest_uuid = ?", manifest.UUID).
+		Select(); err != nil {
+		return nil, err
+	}
+
+	return manifest, nil
+}
+
+func (r *cargoManifestRepository) GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := &CargoManifest{}
+	err = db.Model(manifest).
+		Column("cargo_manifest.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
+		Where("cargo_manifest.uuid = ?", uuid).
+		Select()
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
 	if err := db.Model(&manifest.Items).
 		Where("cargo_manifest_uuid = ?", manifest.UUID).
 		Select(); err != nil {
@@ -115,4 +147,54 @@ func (r *cargoManifestRepository) Update(ctx context.Context, manifest *CargoMan
 
 	// return ตัวเต็มล่าสุด
 	return r.GetByMAWBUUID(ctx, manifest.MAWBInfoUUID)
+}
+
+// GetAll retrieves all cargo manifest records with optional date filtering and customer information.
+func (r *cargoManifestRepository) GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifestListItem, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []CargoManifestListItem
+
+	baseQuery := `
+            SELECT
+                    cm.uuid::text,
+                    cm.mawb_info_uuid::text,
+                    COALESCE(cm.mawb_number, '') as mawb_number,
+                    COALESCE(c.name, '') as customer_name,
+                    TO_CHAR(cm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') as created_at,
+                    COALESCE(ms.name, 'Draft') as status,
+                    CASE WHEN ms.name = 'Cancelled' THEN true ELSE false END as is_deleted
+            FROM public.cargo_manifest cm
+            LEFT JOIN public.tbl_mawb_info mi ON cm.mawb_info_uuid::text = mi.uuid::text
+            LEFT JOIN public.tbl_customers c ON mi.customer_uuid::text = c.uuid::text
+            LEFT JOIN public.master_status ms ON cm.status_uuid = ms.uuid
+    `
+
+	var whereConditions []string
+	var args []interface{}
+
+	if startDate != "" {
+		whereConditions = append(whereConditions, "DATE(cm.created_at AT TIME ZONE 'Asia/Bangkok') >= ?")
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		whereConditions = append(whereConditions, "DATE(cm.created_at AT TIME ZONE 'Asia/Bangkok') <= ?")
+		args = append(args, endDate)
+	}
+
+	query := baseQuery
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+	query += " ORDER BY cm.created_at DESC"
+
+	_, err = db.Query(&items, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }

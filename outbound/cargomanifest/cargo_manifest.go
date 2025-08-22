@@ -40,3 +40,15 @@ type CargoManifestItem struct {
 	ShipperNameAndAddress   string   `json:"shipperNameAndAddress" db:"shipper_name_address"`
 	ConsigneeNameAndAddress string   `json:"consigneeNameAndAddress" db:"consignee_name_address"`
 }
+
+// CargoManifestListItem represents a cargo manifest item in the list view
+// with limited fields for listing endpoints.
+type CargoManifestListItem struct {
+	UUID         string `json:"uuid"`
+	MAWBInfoUUID string `json:"mawbInfoUuid"`
+	MAWBNumber   string `json:"mawbNumber"`
+	CustomerName string `json:"customerName"`
+	CreatedAt    string `json:"createdAt"`
+	Status       string `json:"status"`
+	IsDeleted    bool   `json:"isDeleted"`
+}

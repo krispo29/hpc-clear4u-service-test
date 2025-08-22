@@ -9,9 +9,11 @@ import (
 
 type WeightSlipService interface {
 	GetWeightSlipByMAWBUUID(ctx context.Context, mawbUUID string) (*WeightSlip, error)
+	GetWeightSlipByUUID(ctx context.Context, wsUUID string) (*WeightSlip, error)
 	CreateWeightSlip(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	UpdateWeightSlip(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	UpdateWeightSlipStatus(ctx context.Context, mawbUUID, statusUUID string) error
+	GetAllWeightSlip(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error)
 }
 
 type weightSlipService struct {
@@ -25,6 +27,11 @@ func NewWeightSlipService(repo WeightSlipRepository, statusSvc setting.MasterSta
 
 func (s *weightSlipService) GetWeightSlipByMAWBUUID(ctx context.Context, mawbUUID string) (*WeightSlip, error) {
 	return s.repo.GetByMAWBUUID(ctx, mawbUUID)
+}
+
+// GetWeightSlipByUUID retrieves a weight slip by its own UUID.
+func (s *weightSlipService) GetWeightSlipByUUID(ctx context.Context, wsUUID string) (*WeightSlip, error) {
+	return s.repo.GetByUUID(ctx, wsUUID)
 }
 
 func (s *weightSlipService) setDefaultStatus(ctx context.Context, ws *WeightSlip) error {
@@ -122,4 +129,8 @@ func (s *weightSlipService) UpdateWeightSlipStatus(ctx context.Context, mawbUUID
 	}
 
 	return tx.Commit()
+}
+
+func (s *weightSlipService) GetAllWeightSlip(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error) {
+	return s.repo.GetAll(ctx, startDate, endDate)
 }

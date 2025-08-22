@@ -77,3 +77,16 @@ func (w *WeightSlip) AfterSelect(ctx interface{}) error {
 	w.Weights = Weights{GW: w.GW, TW: w.TW, NW: w.NW, DimWeight: w.DimWeight, VolumeM3: w.VolumeM3}
 	return nil
 }
+
+// WeightSlipListItem represents a weight slip item for listing endpoints with limited fields.
+type WeightSlipListItem struct {
+	UUID         string `json:"uuid"`
+	MAWBInfoUUID string `json:"mawbInfoUuid"`
+	SlipNo       string `json:"slipNo"`
+	MAWB         string `json:"mawb"`
+	HAWB         string `json:"hawb"`
+	CustomerName string `json:"customerName"`
+	CreatedAt    string `json:"createdAt"`
+	Status       string `json:"status"`
+	IsDeleted    bool   `json:"isDeleted"`
+}
