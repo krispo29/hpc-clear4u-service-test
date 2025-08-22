@@ -8,8 +8,8 @@ import (
 	"hpc-express-service/dropdown"
 	inbound "hpc-express-service/inbound/express"
 	"hpc-express-service/mawb"
-	cargoManifest "hpc-express-service/outbound/cargoManifest"
-	draftMawb "hpc-express-service/outbound/draftMawb"
+	cargomanifest "hpc-express-service/outbound/cargomanifest"
+	draftmawb "hpc-express-service/outbound/draftmawb"
 	outboundExpress "hpc-express-service/outbound/express"
 	outboundMawb "hpc-express-service/outbound/mawb"
 	"hpc-express-service/outbound/mawbinfo"
@@ -40,8 +40,8 @@ type RepositoryFactory struct {
 	DashboardRepo                 dashboard.Repository
 	UserRepo                      user.Repository
 	SettingRepo                   setting.Repository
-	CargoManifestRepo             cargoManifest.CargoManifestRepository
-	DraftMAWBRepo                 draftMawb.DraftMAWBRepository
+	CargoManifestRepo             cargomanifest.CargoManifestRepository
+	DraftMAWBRepo                 draftmawb.DraftMAWBRepository
 	WeightSlipRepo                weightSlip.WeightSlipRepository
 	MasterStatusRepo              setting.MasterStatusRepository
 }
@@ -66,8 +66,8 @@ func NewRepositoryFactory() *RepositoryFactory {
 		UserRepo:                      user.NewRepository(timeoutContext),
 		CompareRepo:                   compare.NewExcelRepository(timeoutContext),
 		SettingRepo:                   setting.NewRepository(timeoutContext),
-		CargoManifestRepo:             cargoManifest.NewCargoManifestRepository(),
-		DraftMAWBRepo:                 draftMawb.NewDraftMAWBRepository(),
+		CargoManifestRepo:             cargomanifest.NewCargoManifestRepository(),
+		DraftMAWBRepo:                 draftmawb.NewDraftMAWBRepository(),
 		WeightSlipRepo:                weightSlip.NewWeightSlipRepository(),
 		MasterStatusRepo:              setting.NewMasterStatusRepository(),
 	}
