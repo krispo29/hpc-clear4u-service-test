@@ -47,8 +47,10 @@ type CargoManifestListItem struct {
 	MAWBInfoUUID string `json:"mawbInfoUuid"`
 	MAWBNumber   string `json:"mawbNumber"`
 	FlightNo     string `json:"flightNo"`
+	FreightDate  string `json:"freightDate"`
 	Shipper      string `json:"shipper"`
 	Consignee    string `json:"consignee"`
+	TotalCtn     int    `json:"totalCtn"`
 	CreatedAt    string `json:"createdAt"`
 	Status       string `json:"status"`
 }

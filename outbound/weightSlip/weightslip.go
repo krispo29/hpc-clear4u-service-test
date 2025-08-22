@@ -68,6 +68,10 @@ type WeightSlipListItem struct {
 	SlipNo       string `json:"slipNo"`
 	MAWB         string `json:"mawb"`
 	HAWB         string `json:"hawb"`
+	Dest         string `json:"dest"`
+	Flight       string `json:"flight"`
+	AgentName    string `json:"agentName"`
+	GrossWeight  string `json:"grossWeight"`
 	CreatedAt    string `json:"createdAt"`
 	Status       string `json:"status"`
 }

@@ -163,8 +163,10 @@ func (r *cargoManifestRepository) GetAll(ctx context.Context, startDate, endDate
                        cm.mawb_info_uuid::text,
                        COALESCE(cm.mawb_number, '') AS mawb_number,
                        COALESCE(cm.flight_no, '') AS flight_no,
+                       COALESCE(TO_CHAR(cm.freight_date, 'DD-MM-YYYY'), '') AS freight_date,
                        COALESCE(cm.shipper, '') AS shipper,
                        COALESCE(cm.consignee, '') AS consignee,
+                       COALESCE(cm.total_ctn::int, 0) AS total_ctn,
                        TO_CHAR(cm.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') AS created_at,
                        COALESCE(ms.name, 'Draft') AS status
                FROM public.cargo_manifest cm
