@@ -19,7 +19,7 @@ import (
 
 	"hpc-express-service/constant"
 	"hpc-express-service/factory"
-	draftMawb "hpc-express-service/outbound/draftMawb"
+	draftMawb "hpc-express-service/outbound/draftmawb"
 )
 
 type Server struct {
