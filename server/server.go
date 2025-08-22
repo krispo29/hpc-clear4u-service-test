@@ -147,7 +147,6 @@ func New(
 				s:                s.svcFactory.MawbInfoSvc,
 				cargoManifestSvc: s.svcFactory.CargoManifestSvc,
 				draftMAWBSvc:     s.svcFactory.DraftMAWBSvc,
-				weightslipSvc:    s.svcFactory.WeightSlipSvc,
 				statusSvc:        s.svcFactory.MasterStatusSvc,
 			}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
