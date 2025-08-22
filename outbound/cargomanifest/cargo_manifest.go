@@ -1,4 +1,4 @@
-package outbound
+package cargomanifest
 
 import (
 	"net/http"
