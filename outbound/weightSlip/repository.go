@@ -3,6 +3,7 @@ package outbound
 import (
 	"context"
 	"hpc-express-service/common"
+	"strings"
 	"time"
 
 	"github.com/go-pg/pg/v9"
@@ -14,6 +15,7 @@ type WeightSlipRepository interface {
 	GetByUUID(ctx context.Context, uuid string) (*WeightSlip, error)
 	Create(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	Update(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
+	GetAll(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error)
 }
 
 type weightSlipRepository struct{}
@@ -142,4 +144,49 @@ func (r *weightSlipRepository) Update(ctx context.Context, ws *WeightSlip) (*Wei
 	}
 
 	return r.GetByMAWBUUID(ctx, ws.MAWBInfoUUID)
+}
+
+func (r *weightSlipRepository) GetAll(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []WeightSlipListItem
+
+	baseQuery := `
+               SELECT
+                       ws.uuid::text,
+                       ws.mawb_info_uuid::text,
+                       COALESCE(ws.slip_no, '') AS slip_no,
+                       COALESCE(ws.mawb, '') AS mawb,
+                       COALESCE(ws.hawb, '') AS hawb,
+                       TO_CHAR(ws.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') AS created_at,
+                       COALESCE(ms.name, 'Draft') AS status
+               FROM public.weight_slip ws
+               LEFT JOIN public.master_status ms ON ws.status_uuid = ms.uuid
+       `
+
+	var whereConditions []string
+	var args []interface{}
+	if startDate != "" {
+		whereConditions = append(whereConditions, "DATE(ws.created_at AT TIME ZONE 'Asia/Bangkok') >= ?")
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		whereConditions = append(whereConditions, "DATE(ws.created_at AT TIME ZONE 'Asia/Bangkok') <= ?")
+		args = append(args, endDate)
+	}
+	query := baseQuery
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+	query += " ORDER BY ws.created_at DESC"
+
+	_, err = db.Query(&items, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }

@@ -13,6 +13,7 @@ type WeightSlipService interface {
 	CreateWeightSlip(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	UpdateWeightSlip(ctx context.Context, ws *WeightSlip) (*WeightSlip, error)
 	UpdateWeightSlipStatus(ctx context.Context, mawbUUID, statusUUID string) error
+	GetAllWeightSlip(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error)
 }
 
 type weightSlipService struct {
@@ -128,4 +129,8 @@ func (s *weightSlipService) UpdateWeightSlipStatus(ctx context.Context, mawbUUID
 	}
 
 	return tx.Commit()
+}
+
+func (s *weightSlipService) GetAllWeightSlip(ctx context.Context, startDate, endDate string) ([]WeightSlipListItem, error) {
+	return s.repo.GetAll(ctx, startDate, endDate)
 }

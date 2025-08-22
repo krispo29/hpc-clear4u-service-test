@@ -61,6 +61,17 @@ type WeightSlipDimension struct {
 	PCS            int      `json:"pcs" pg:"pcs"`
 }
 
+// WeightSlipListItem represents a weight slip item in the list view
+type WeightSlipListItem struct {
+	UUID         string `json:"uuid"`
+	MAWBInfoUUID string `json:"mawbInfoUuid"`
+	SlipNo       string `json:"slipNo"`
+	MAWB         string `json:"mawb"`
+	HAWB         string `json:"hawb"`
+	CreatedAt    string `json:"createdAt"`
+	Status       string `json:"status"`
+}
+
 func (w *WeightSlip) Bind(r *http.Request) error {
 	w.AgentCode = w.Agent.Code
 	w.AgentName = w.Agent.Name
