@@ -161,6 +161,10 @@ func (r *weightSlipRepository) GetAll(ctx context.Context, startDate, endDate st
                        COALESCE(ws.slip_no, '') AS slip_no,
                        COALESCE(ws.mawb, '') AS mawb,
                        COALESCE(ws.hawb, '') AS hawb,
+                       COALESCE(ws.dest, '') AS dest,
+                       COALESCE(ws.flight, '') AS flight,
+                       COALESCE(ws.agent_name, '') AS agent_name,
+                       CASE WHEN ws.gw IS NULL THEN '' ELSE CONCAT(TRIM(to_char(ws.gw, 'FM999999990.##')), ' KGS') END AS gross_weight,
                        TO_CHAR(ws.created_at AT TIME ZONE 'Asia/Bangkok', 'DD-MM-YYYY HH24:MI:SS') AS created_at,
                        COALESCE(ms.name, 'Draft') AS status
                FROM public.weight_slip ws
