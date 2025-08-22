@@ -1,11 +1,13 @@
+//go:build ignore
+
 package server
 
 import (
 	"bytes"
 	"context"
 	"fmt"
-	cargoManifest "hpc-express-service/outbound/cargoManifest"
-	draftMawb "hpc-express-service/outbound/draftMawb"
+	cargomanifest "hpc-express-service/outbound/cargomanifest"
+	draftmawb "hpc-express-service/outbound/draftmawb"
 	"hpc-express-service/setting"
 	"log"
 	"net/http"
@@ -22,8 +24,8 @@ import (
 
 type mawbInfoHandler struct {
 	s                mawbinfo.Service
-	cargoManifestSvc cargoManifest.CargoManifestService
-	draftMAWBSvc     draftMawb.DraftMAWBService
+	cargoManifestSvc cargomanifest.CargoManifestService
+	draftMAWBSvc     draftmawb.DraftMAWBService
 	statusSvc        setting.MasterStatusService
 }
 
@@ -105,7 +107,7 @@ func (h *mawbInfoHandler) createCargoManifest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	data := &cargoManifest.CargoManifest{}
+	data := &cargomanifest.CargoManifest{}
 	if err := render.Bind(r, data); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -128,7 +130,7 @@ func (h *mawbInfoHandler) updateCargoManifest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	data := &cargoManifest.CargoManifest{}
+	data := &cargomanifest.CargoManifest{}
 	if err := render.Bind(r, data); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -297,7 +299,7 @@ func (h *mawbInfoHandler) previewCargoManifest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	manifest := &cargoManifest.CargoManifest{}
+	manifest := &cargomanifest.CargoManifest{}
 	if err := render.Bind(r, manifest); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -347,7 +349,7 @@ func (h *mawbInfoHandler) createDraftMAWB(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	inputData := &draftMawb.DraftMAWBInput{}
+	inputData := &draftmawb.DraftMAWBInput{}
 	if err := render.Bind(r, inputData); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -381,7 +383,7 @@ func (h *mawbInfoHandler) updateDraftMAWB(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	inputData := &draftMawb.DraftMAWBInput{}
+	inputData := &draftmawb.DraftMAWBInput{}
 	if err := render.Bind(r, inputData); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -836,7 +838,7 @@ func (h *mawbInfoHandler) previewDraftMAWB(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	inputData := &draftMawb.DraftMAWBInput{}
+	inputData := &draftmawb.DraftMAWBInput{}
 	if err := render.Bind(r, inputData); err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -859,10 +861,10 @@ func (h *mawbInfoHandler) previewDraftMAWB(w http.ResponseWriter, r *http.Reques
 }
 
 // Helper functions to convert input types to response types
-func convertItemInputsToItems(inputs []draftMawb.DraftMAWBItemInput) []draftMawb.DraftMAWBItem {
-	items := make([]draftMawb.DraftMAWBItem, len(inputs))
+func convertItemInputsToItems(inputs []draftmawb.DraftMAWBItemInput) []draftmawb.DraftMAWBItem {
+	items := make([]draftmawb.DraftMAWBItem, len(inputs))
 	for i, input := range inputs {
-		items[i] = draftMawb.DraftMAWBItem{
+		items[i] = draftmawb.DraftMAWBItem{
 			ID:                input.ID,
 			PiecesRCP:         input.PiecesRCP,
 			GrossWeight:       fmt.Sprintf("%.2f", input.GrossWeight),
@@ -879,10 +881,10 @@ func convertItemInputsToItems(inputs []draftMawb.DraftMAWBItemInput) []draftMawb
 	return items
 }
 
-func convertDimInputsToDims(inputs []draftMawb.DraftMAWBItemDimInput) []draftMawb.DraftMAWBItemDim {
-	dims := make([]draftMawb.DraftMAWBItemDim, len(inputs))
+func convertDimInputsToDims(inputs []draftmawb.DraftMAWBItemDimInput) []draftmawb.DraftMAWBItemDim {
+	dims := make([]draftmawb.DraftMAWBItemDim, len(inputs))
 	for i, input := range inputs {
-		dims[i] = draftMawb.DraftMAWBItemDim{
+		dims[i] = draftmawb.DraftMAWBItemDim{
 			ID:     input.ID,
 			Length: fmt.Sprintf("%d", input.Length),
 			Width:  fmt.Sprintf("%d", input.Width),
@@ -893,10 +895,10 @@ func convertDimInputsToDims(inputs []draftMawb.DraftMAWBItemDimInput) []draftMaw
 	return dims
 }
 
-func convertChargeInputsToCharges(inputs []draftMawb.DraftMAWBChargeInput) []draftMawb.DraftMAWBCharge {
-	charges := make([]draftMawb.DraftMAWBCharge, len(inputs))
+func convertChargeInputsToCharges(inputs []draftmawb.DraftMAWBChargeInput) []draftmawb.DraftMAWBCharge {
+	charges := make([]draftmawb.DraftMAWBCharge, len(inputs))
 	for i, input := range inputs {
-		charges[i] = draftMawb.DraftMAWBCharge{
+		charges[i] = draftmawb.DraftMAWBCharge{
 			ID:    input.ID,
 			Key:   input.Key,
 			Value: input.Value,
@@ -905,7 +907,7 @@ func convertChargeInputsToCharges(inputs []draftMawb.DraftMAWBChargeInput) []dra
 	return charges
 }
 
-func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *cargoManifest.CargoManifest) (bytes.Buffer, error) {
+func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *cargomanifest.CargoManifest) (bytes.Buffer, error) {
 	frontTHSarabunNew, err := os.ReadFile("assets/THSarabunNew.ttf")
 	if err != nil {
 		log.Println(err)
@@ -1030,7 +1032,7 @@ func (h *mawbInfoHandler) generateCargoManifestPDF(manifest *cargoManifest.Cargo
 	return buf, err
 }
 
-func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, isPreview bool) (bytes.Buffer, error) {
+func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftmawb.DraftMAWBInput, isPreview bool) (bytes.Buffer, error) {
 	// Loading Font
 	frontTHSarabunNew, err := os.ReadFile("assets/THSarabunNew.ttf")
 	if err != nil {
