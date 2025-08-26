@@ -11,6 +11,8 @@ import (
 
 type CargoManifestRepository interface {
 	GetByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error)
+	GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifest, error)
 	Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	Update(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 }
@@ -50,6 +52,62 @@ func (r *cargoManifestRepository) GetByMAWBUUID(ctx context.Context, mawbUUID st
 	}
 
 	return manifest, nil
+}
+
+func (r *cargoManifestRepository) GetByUUID(ctx context.Context, uuid string) (*CargoManifest, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := &CargoManifest{}
+	err = db.Model(manifest).
+		Column("cargo_manifest.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid").
+		Where("cargo_manifest.uuid = ?", uuid).
+		Select()
+
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := db.Model(&manifest.Items).
+		Where("cargo_manifest_uuid = ?", manifest.UUID).
+		Select(); err != nil {
+		return nil, err
+	}
+
+	return manifest, nil
+}
+
+func (r *cargoManifestRepository) GetAll(ctx context.Context, startDate, endDate string) ([]CargoManifest, error) {
+	db, err := common.GetQer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var manifests []CargoManifest
+	q := db.Model(&manifests).
+		Column("cargo_manifest.*").
+		ColumnExpr("ms.name AS status").
+		Join("LEFT JOIN master_status AS ms ON ms.uuid = cargo_manifest.status_uuid")
+
+	if startDate != "" {
+		q.Where("DATE(cargo_manifest.created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		q.Where("DATE(cargo_manifest.created_at) <= ?", endDate)
+	}
+
+	if err := q.Order("cargo_manifest.created_at DESC").Select(); err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
 }
 
 func (r *cargoManifestRepository) Create(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error) {

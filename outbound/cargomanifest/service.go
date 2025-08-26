@@ -9,6 +9,8 @@ import (
 
 type CargoManifestService interface {
 	GetCargoManifestByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error)
+	GetCargoManifestByUUID(ctx context.Context, uuid string) (*CargoManifest, error)
+	GetAllCargoManifest(ctx context.Context, startDate, endDate string) ([]CargoManifest, error)
 	CreateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifest(ctx context.Context, manifest *CargoManifest) (*CargoManifest, error)
 	UpdateCargoManifestStatus(ctx context.Context, mawbUUID, statusUUID string) error
@@ -26,6 +28,14 @@ func NewCargoManifestService(repo CargoManifestRepository, statusSvc setting.Mas
 func (s *cargoManifestService) GetCargoManifestByMAWBUUID(ctx context.Context, mawbUUID string) (*CargoManifest, error) {
 	// Add any business logic here if needed, e.g., permission checks.
 	return s.repo.GetByMAWBUUID(ctx, mawbUUID)
+}
+
+func (s *cargoManifestService) GetCargoManifestByUUID(ctx context.Context, uuid string) (*CargoManifest, error) {
+	return s.repo.GetByUUID(ctx, uuid)
+}
+
+func (s *cargoManifestService) GetAllCargoManifest(ctx context.Context, startDate, endDate string) ([]CargoManifest, error) {
+	return s.repo.GetAll(ctx, startDate, endDate)
 }
 
 // setDefaultStatus sets the status of the manifest to the default 'Draft' status.

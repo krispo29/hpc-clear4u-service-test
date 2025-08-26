@@ -104,6 +104,26 @@ func (h *mawbInfoHandler) getCargoManifest(w http.ResponseWriter, r *http.Reques
 	render.Respond(w, r, SuccessResponse(manifest, "Success"))
 }
 
+func (h *mawbInfoHandler) getCargoManifestByUUID(w http.ResponseWriter, r *http.Request) {
+	manifestUUID := chi.URLParam(r, "cargo_manifest_uuid")
+	if manifestUUID == "" {
+		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("cargo_manifest_uuid parameter is required")))
+		return
+	}
+
+	manifest, err := h.cargoManifestSvc.GetCargoManifestByUUID(r.Context(), manifestUUID)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	if manifest == nil {
+		render.Render(w, r, &ErrResponse{HTTPStatusCode: http.StatusNotFound, Message: "Cargo Manifest not found"})
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(manifest, "Success"))
+}
+
 func (h *mawbInfoHandler) createCargoManifest(w http.ResponseWriter, r *http.Request) {
 	mawbUUID := chi.URLParam(r, "uuid")
 	if mawbUUID == "" {
