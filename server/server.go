@@ -19,7 +19,7 @@ import (
 
 	"hpc-express-service/constant"
 	"hpc-express-service/factory"
-	draftMawb "hpc-express-service/outbound/draftmawb"
+	draftMawb "hpc-express-service/outbound/draftMawb"
 )
 
 type Server struct {
@@ -147,7 +147,6 @@ func New(
 				s:                s.svcFactory.MawbInfoSvc,
 				cargoManifestSvc: s.svcFactory.CargoManifestSvc,
 				draftMAWBSvc:     s.svcFactory.DraftMAWBSvc,
-				weightslipSvc:    s.svcFactory.WeightSlipSvc,
 				statusSvc:        s.svcFactory.MasterStatusSvc,
 			}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())

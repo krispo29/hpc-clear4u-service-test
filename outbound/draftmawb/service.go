@@ -1,4 +1,4 @@
-package draftmawb
+package outbound
 
 import (
 	"context"
