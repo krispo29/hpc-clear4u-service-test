@@ -322,8 +322,6 @@ func (h *mawbInfoHandler) previewCargoManifest(w http.ResponseWriter, r *http.Re
 	w.Write(pdfBuffer.Bytes())
 }
 
-<<<<<<< HEAD
-=======
 func (h *mawbInfoHandler) getAllCargoManifest(w http.ResponseWriter, r *http.Request) {
 	startDate := r.URL.Query().Get("start")
 	endDate := r.URL.Query().Get("end")
@@ -337,7 +335,6 @@ func (h *mawbInfoHandler) getAllCargoManifest(w http.ResponseWriter, r *http.Req
 	render.Respond(w, r, SuccessResponse(manifests, "Success"))
 }
 
->>>>>>> a3f1d0fb0579b43d92cf153e9e6b29290bc9ca8f
 // Draft MAWB Handlers
 
 func (h *mawbInfoHandler) getDraftMAWB(w http.ResponseWriter, r *http.Request) {
