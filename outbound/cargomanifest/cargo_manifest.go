@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+type PrintOptions struct {
+	CargoManifest bool `json:"cargoManifest"`
+}
 type CargoManifest struct {
 	tableName       struct{}            `pg:"public.cargo_manifest"`
 	UUID            string              `json:"uuid" pg:"uuid"`
@@ -19,6 +22,7 @@ type CargoManifest struct {
 	Transshipment   string              `json:"transshipment" pg:"transshipment"`
 	StatusUUID      string              `json:"statusUuid" pg:"status_uuid"`
 	Status          string              `json:"status" pg:"-"`
+	PrintOptions    PrintOptions        `json:"printOptions" pg:"-"`
 	Items           []CargoManifestItem `json:"items"`
 	CreatedAt       time.Time           `json:"createdAt" pg:"created_at"`
 	UpdatedAt       time.Time           `json:"updatedAt" pg:"updated_at"`

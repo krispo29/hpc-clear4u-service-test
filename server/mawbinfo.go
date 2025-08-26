@@ -351,6 +351,9 @@ func (h *mawbInfoHandler) getAllCargoManifest(w http.ResponseWriter, r *http.Req
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
+	for i := range manifests {
+		manifests[i].PrintOptions = cargoManifest.PrintOptions{CargoManifest: true}
+	}
 
 	render.Respond(w, r, SuccessResponse(manifests, "Success"))
 }
