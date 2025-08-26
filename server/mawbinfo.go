@@ -4,13 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-<<<<<<< HEAD
-	cargoManifest "hpc-express-service/outbound/cargoManifest"
-	draftMawb "hpc-express-service/outbound/draftMawb"
-=======
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
->>>>>>> a3f1d0fb0579b43d92cf153e9e6b29290bc9ca8f
 	"hpc-express-service/setting"
 	"log"
 	"net/http"
@@ -40,11 +35,6 @@ func (h *mawbInfoHandler) router() chi.Router {
 	// Draft MAWB List Route (without uuid parameter)
 	r.Get("/draft-mawb", h.getAllDraftMAWB)
 
-<<<<<<< HEAD
-	// Draft MAWB Detail Route by draft UUID (not mawb_info_uuid)
-	r.Get("/draft-mawb/{draft_uuid}", h.getDraftMAWBByUUID)
-
-=======
 	// Cargo manifest List Route (without uuid parameter)
 	r.Get("/cargo-manifest", h.getAllCargoManifest)
 
@@ -54,7 +44,6 @@ func (h *mawbInfoHandler) router() chi.Router {
 	// Cargo manifest Detail Route by cargo manifest UUID (not mawb_info_uuid)
 	r.Get("/cargo-manifest/{cargo_manifest_uuid}", h.getCargoManifestByUUID)
 
->>>>>>> a3f1d0fb0579b43d92cf153e9e6b29290bc9ca8f
 	r.Route("/{uuid}", func(r chi.Router) {
 		r.Get("/", h.getMawbInfo)
 		r.Put("/", h.updateMawbInfo)
