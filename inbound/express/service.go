@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"time"
 
@@ -19,12 +18,16 @@ import (
 )
 
 type InboundExpressService interface {
-	UploadManifest(ctx context.Context, userUUID, originName, templateCode string, fileBytes []byte) error
-	DownloadPreImport(ctx context.Context, uploadLoggingUUID string) (string, *bytes.Buffer, error)
-	DownloadRawPreImport(ctx context.Context, uploadLoggingUUID string) (string, *bytes.Buffer, error)
-	UploadUpdateRawPreImport(ctx context.Context, userUUID, originName string, fileBytes []byte) error
-	GetOneByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (*GetPreImportManifestModel, error)
-	GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (*UploadSummaryModel, error)
+	GetAllMawb(ctx context.Context) ([]*GetPreImportManifestModel, error)
+	// GetMawb(ctx context.Context, uuid string)
+	InsertPreImportManifestHeader(ctx context.Context, data *InsertPreImportHeaderManifestModel) (string, error)
+	UpdatePreImportManifestHeader(ctx context.Context, data *UpdatePreImportHeaderManifestModel) error
+	UploadManifestDetails(ctx context.Context, userUUID, headerUUID, originName, templateCode string, fileBytes []byte) error
+	DownloadPreImport(ctx context.Context, headerUUID string) (string, *bytes.Buffer, error)
+	DownloadRawPreImport(ctx context.Context, headerUUID string) (string, *bytes.Buffer, error)
+	UploadUpdateRawPreImport(ctx context.Context, userUUID, headerUUID, originName string, fileBytes []byte) error
+	GetOneByHeaderUUID(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error)
+	GetSummaryByHeaderUUID(ctx context.Context, headerUUID string) (*UploadSummaryModel, error)
 }
 
 type service struct {
@@ -51,7 +54,43 @@ func NewInboundExpressService(
 	}
 }
 
-func (s *service) UploadManifest(ctx context.Context, userUUID, originName, templateCode string, fileBytes []byte) error {
+func (s *service) GetAllMawb(ctx context.Context) ([]*GetPreImportManifestModel, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	result, err := s.selfRepo.GetAllMawb(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *service) InsertPreImportManifestHeader(ctx context.Context, data *InsertPreImportHeaderManifestModel) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	uuid, err := s.selfRepo.InsertPreImportManifestHeader(ctx, data)
+	if err != nil {
+		return "", err
+	}
+
+	return uuid, nil
+}
+
+func (s *service) UpdatePreImportManifestHeader(ctx context.Context, data *UpdatePreImportHeaderManifestModel) error {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	err := s.selfRepo.UpdatePreImportManifestHeader(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *service) UploadManifestDetails(ctx context.Context, userUUID, headerUUID, originName, templateCode string, fileBytes []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
@@ -72,7 +111,7 @@ func (s *service) UploadManifest(ctx context.Context, userUUID, originName, temp
 		}
 
 		// Insert Manifest
-		resultUpload, err := s.ship2cuSvc.UploadPreImportManifests(ctx, uploadLogUUID, fileBytes)
+		details, err := s.ship2cuSvc.ConvertToPreImportDetails(ctx, uploadLogUUID, fileBytes)
 		if err != nil {
 			s.uploadlogSvc.Update(ctx, &uploadlog.UpdateModel{
 				UUID:   uploadLogUUID,
@@ -83,10 +122,16 @@ func (s *service) UploadManifest(ctx context.Context, userUUID, originName, temp
 			})
 			return err
 		} else {
+
+			err := s.selfRepo.InsertPreImportManifestDetails(ctx, headerUUID, details, 200)
+			if err != nil {
+				return err
+			}
+
 			s.uploadlogSvc.Update(ctx, &uploadlog.UpdateModel{
-				UUID:   uploadLogUUID,
-				Mawb:   resultUpload.Mawb,
-				Amount: resultUpload.Amount,
+				UUID: uploadLogUUID,
+				// Mawb:   resultUpload.Mawb,
+				Amount: int64(len(details)),
 				Status: "success",
 			})
 		}
@@ -96,25 +141,18 @@ func (s *service) UploadManifest(ctx context.Context, userUUID, originName, temp
 	}
 
 	return nil
-
 }
 
-func (s *service) DownloadPreImport(ctx context.Context, uploadLoggingUUID string) (string, *bytes.Buffer, error) {
+func (s *service) DownloadPreImport(ctx context.Context, headerUUID string) (string, *bytes.Buffer, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
-
-	var err error
-	uploadLogData, err := s.uploadlogSvc.Get(ctx, uploadLoggingUUID)
-	if err != nil {
-		return "", nil, err
-	}
 
 	/*
 		Prepare Data
 	*/
 	// allData := []*GetDataManifestImport{}
 	// if uploadLogData.TemplateCode == "TOPGLS" {
-	preImportData, err := s.selfRepo.GetAllManifestToPreImport(ctx, uploadLogData.UUID)
+	preImportData, err := s.selfRepo.GetOneMawb(ctx, headerUUID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -232,7 +270,7 @@ func (s *service) DownloadPreImport(ctx context.Context, uploadLoggingUUID strin
 
 		}
 		// Save Excel to a buffer
-		fileName := fmt.Sprintf("pre_import_%v_%v_%v.xlsx", uploadLogData.TemplateCode, uploadLogData.Mawb, strconv.Itoa(i+1))
+		fileName := fmt.Sprintf("pre_import_%v_%v.xlsx", preImportData.Mawb, strconv.Itoa(i+1))
 
 		var excelBuf bytes.Buffer
 		if err := f.Write(&excelBuf); err != nil {
@@ -264,23 +302,16 @@ func (s *service) DownloadPreImport(ctx context.Context, uploadLoggingUUID strin
 		return "", nil, err
 	}
 
-	return fmt.Sprintf("pre_import_%v_%v", uploadLogData.TemplateCode, uploadLogData.Mawb), &zipBuf, nil
+	return fmt.Sprintf("pre_import_%v", preImportData.Mawb), &zipBuf, nil
 }
 
-func (s *service) DownloadRawPreImport(ctx context.Context, uploadLoggingUUID string) (string, *bytes.Buffer, error) {
+func (s *service) DownloadRawPreImport(ctx context.Context, headerUUID string) (string, *bytes.Buffer, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
-
-	var err error
-	uploadLogData, err := s.uploadlogSvc.Get(ctx, uploadLoggingUUID)
-	if err != nil {
-		return "", nil, err
-	}
-
 	/*
 		Prepare Data
 	*/
-	preImportData, err := s.selfRepo.GetAllManifestToPreImport(ctx, uploadLogData.UUID)
+	preImportData, err := s.selfRepo.GetOneMawb(ctx, headerUUID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -364,12 +395,12 @@ func (s *service) DownloadRawPreImport(ctx context.Context, uploadLoggingUUID st
 		return "", nil, err
 	}
 
-	fileName := fmt.Sprintf("raw_pre_import_%v_%v.xlsx", uploadLogData.TemplateCode, uploadLogData.Mawb)
+	fileName := fmt.Sprintf("raw_pre_import_%v.xlsx", preImportData.Mawb)
 
 	return fileName, &excelBuf, nil
 }
 
-func (s *service) UploadUpdateRawPreImport(ctx context.Context, userUUID, originName string, fileBytes []byte) error {
+func (s *service) UploadUpdateRawPreImport(ctx context.Context, userUUID, headerUUID, originName string, fileBytes []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
@@ -512,7 +543,7 @@ func (s *service) UploadUpdateRawPreImport(ctx context.Context, userUUID, origin
 		listUpdateData = append(listUpdateData, &data)
 	}
 
-	if err := s.selfRepo.UpdatePreImportManifestDetail(ctx, listUpdateData); err != nil {
+	if err := s.selfRepo.UpdatePreImportManifestDetail(ctx, headerUUID, listUpdateData); err != nil {
 		return err
 	}
 
@@ -529,50 +560,90 @@ func (s *service) UploadUpdateRawPreImport(ctx context.Context, userUUID, origin
 	return nil
 }
 
-func (s *service) GetOneByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (*GetPreImportManifestModel, error) {
+func (s *service) GetOneByHeaderUUID(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
-	result, err := s.selfRepo.GetAllManifestToPreImport(ctx, uploadLoggingUUID)
+	result, err := s.selfRepo.GetOneMawb(ctx, headerUUID)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Println(len(result.Details))
 	return result, nil
 }
 
-func (s *service) GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (*UploadSummaryModel, error) {
+func (s *service) GetSummaryByHeaderUUID(ctx context.Context, headerUUID string) (*UploadSummaryModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
-	list, err := s.selfRepo.GetSummaryByUploaddingUUID(ctx, uploadLoggingUUID)
+	mawbInfo, err := s.selfRepo.GetOneMawb(ctx, headerUUID)
 	if err != nil {
 		return nil, err
 	}
+
+	list, err := s.selfRepo.GetSummaryByHeaderUUID(ctx, headerUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	totalHawb := len(list)
+	customFee := calcCustomsFee(int(totalHawb))
+	otCustomsFee := &OTCustomFeeModel{}
+	if mawbInfo.IsEnableCustomsOT {
+		otCustomsFee = calcOTCustomsFee(int(totalHawb))
+	}
+	bankFee := calcBankFee(int(totalHawb))
+	cargoPermitFee := calcCargoPermitFee(int(totalHawb))
+	expressDelvieryFee := calcExpressDeliveryFee(int(totalHawb))
 
 	result := &UploadSummaryModel{}
 	cat2 := &CatogorySummaryModel{Category: "2"}
 	cat3 := &CatogorySummaryModel{Category: "3"}
 	otherCatogory := &CatogorySummaryModel{Category: "other"}
-	for _, v := range list {
-		if v.Category == "2" {
+	for i, v := range list {
+		switch v.Category {
+		case "2":
 			cat2.Total++
 			cat2.Vat += v.Vat
-		} else if v.Category == "3" {
+			cat2.CustomFee = cat2.CustomFee.Add(customFee.PerHawbFees[i])
+			if mawbInfo.IsEnableCustomsOT {
+				cat2.OTCustomsFee = cat2.OTCustomsFee.Add(otCustomsFee.PerHawbFees[i])
+			}
+			cat2.BankFee = cat2.BankFee.Add(bankFee.PerHawbFees[i])
+			cat2.CargoPermitFee = cat2.CargoPermitFee.Add(cargoPermitFee.PerHawbFees[i])
+			cat2.ExpressDeliveryFee = cat2.ExpressDeliveryFee.Add(expressDelvieryFee.PerHawbFees[i])
+		case "3":
 			cat3.Total++
 			cat3.Vat += v.Vat
 			cat3.Duty += v.Duty
 			cat3.DutyAndVat += (v.Duty + v.Vat)
-
-		} else {
+			cat3.CustomFee = cat3.CustomFee.Add(customFee.PerHawbFees[i])
+			if mawbInfo.IsEnableCustomsOT {
+				cat3.OTCustomsFee = cat3.OTCustomsFee.Add(otCustomsFee.PerHawbFees[i])
+			}
+			cat3.BankFee = cat3.BankFee.Add(bankFee.PerHawbFees[i])
+			cat3.CargoPermitFee = cat3.CargoPermitFee.Add(cargoPermitFee.PerHawbFees[i])
+			cat3.ExpressDeliveryFee = cat3.ExpressDeliveryFee.Add(expressDelvieryFee.PerHawbFees[i])
+		default:
 			otherCatogory.Total++
 			otherCatogory.Vat += v.Vat
 			otherCatogory.Duty += v.Duty
 			otherCatogory.DutyAndVat += (v.Duty + v.Vat)
+			otherCatogory.CustomFee = otherCatogory.CustomFee.Add(customFee.PerHawbFees[i])
+			if mawbInfo.IsEnableCustomsOT {
+				otherCatogory.OTCustomsFee = otherCatogory.OTCustomsFee.Add(otCustomsFee.PerHawbFees[i])
+			}
+			otherCatogory.BankFee = otherCatogory.BankFee.Add(bankFee.PerHawbFees[i])
+			otherCatogory.CargoPermitFee = otherCatogory.CargoPermitFee.Add(cargoPermitFee.PerHawbFees[i])
+			otherCatogory.ExpressDeliveryFee = otherCatogory.ExpressDeliveryFee.Add(expressDelvieryFee.PerHawbFees[i])
 		}
 	}
 
+	result.CustomFee = customFee
+	result.OTCustomFee = otCustomsFee
+	result.BankFeeFee = bankFee
+	result.CargoPermitFee = cargoPermitFee
+	result.ExpressDeliveryFee = expressDelvieryFee
 	result.Catogory2 = cat2
 	result.Catogory3 = cat3
 	result.OtherCatogory = otherCatogory

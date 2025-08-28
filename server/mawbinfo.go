@@ -7,6 +7,7 @@ import (
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
 	"hpc-express-service/setting"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -1138,9 +1139,34 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	pdf.SetXY(9, 19)
 	pdf.MultiCell(89, 3.5, data.ShipperNameAndAddress, "0", "LT", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 20)
-	pdf.SetXY(118, 13)
-	pdf.MultiCell(77, 20, data.AWBIssuedBy, "0", "C", false)
+	// pdf.SetFont("THSarabunNew Bold", "", 20)
+	// pdf.SetXY(118, 13)
+	// pdf.MultiCell(77, 20, data.AWBIssuedBy, "0", "C", false)
+	if data.AirlineLogo != "" {
+		resp, err := http.Get(data.AirlineLogo)
+		if err == nil {
+			defer resp.Body.Close()
+			imgData, err := io.ReadAll(resp.Body)
+			if err == nil {
+				imgType := ""
+				lower := strings.ToLower(data.AirlineLogo)
+				switch {
+				case strings.HasSuffix(lower, ".png"):
+					imgType = "PNG"
+				case strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg"):
+					imgType = "JPG"
+				default:
+					imgType = "PNG"
+				}
+				imgName := "airline_logo"
+				pdf.RegisterImageOptionsReader(imgName, gofpdf.ImageOptions{ImageType: imgType}, bytes.NewReader(imgData))
+				logoW, logoH := 50.0, 15.0
+				x := 118 + (77-logoW)/2
+				y := 13 + (20-logoH)/2
+				pdf.ImageOptions(imgName, x, y, logoW, logoH, false, gofpdf.ImageOptions{ImageType: imgType}, 0, "")
+			}
+		}
+	}
 
 	pdf.SetFont("THSarabunNew Bold", "", 18)
 	pdf.SetXY(9, 45)

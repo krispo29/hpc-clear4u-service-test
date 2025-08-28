@@ -1,17 +1,122 @@
 package inbound
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/shopspring/decimal"
+)
+
+type InsertPreImportHeaderManifestModel struct {
+	Mawb               string `json:"mawb" validate:"required"`
+	DischargePort      string `json:"dischargePort"`
+	VasselName         string `json:"vasselName"`
+	ArrivalDate        string `json:"arrivalDate"`
+	CustomerName       string `json:"customerName"`
+	FlightNo           string `json:"flightNo"`
+	OriginCountryCode  string `json:"originCountryCode"`
+	OriginCurrencyCode string `json:"originCurrencyCode"`
+	IsEnableCustomsOT  bool   `json:"isEnableCustomsOT"`
+}
+
+func (o *InsertPreImportHeaderManifestModel) Bind(r *http.Request) error {
+	return nil
+}
+
+func (o *InsertPreImportHeaderManifestModel) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+type UpdatePreImportHeaderManifestModel struct {
+	UUID               string `json:"uuid" validate:"required"`
+	Mawb               string `json:"mawb" validate:"required"`
+	DischargePort      string `json:"dischargePort"`
+	VasselName         string `json:"vasselName"`
+	ArrivalDate        string `json:"arrivalDate"`
+	CustomerName       string `json:"customerName"`
+	FlightNo           string `json:"flightNo"`
+	OriginCountryCode  string `json:"originCountryCode"`
+	OriginCurrencyCode string `json:"originCurrencyCode"`
+	IsEnableCustomsOT  bool   `json:"isEnableCustomsOT"`
+}
+
+func (o *UpdatePreImportHeaderManifestModel) Bind(r *http.Request) error {
+	return nil
+}
+
+func (o *UpdatePreImportHeaderManifestModel) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+// type InsertPreImportDetailManifestModel struct {
+// 	HeaderUUID               string
+// 	MasterAirWaybill         string
+// 	HouseAirWaybill          string
+// 	Category                 string
+// 	ConsigneeTax             string
+// 	ConsigneeBranch          string
+// 	ConsigneeName            string
+// 	ConsigneeAddress         string
+// 	ConsigneeDistrict        string
+// 	ConsigneeSubprovince     string
+// 	ConsigneeProvince        string
+// 	ConsigneePostcode        string
+// 	ConsigneeCountryCode     string
+// 	ConsigneeEmail           string
+// 	ConsigneePhoneNumber     string
+// 	ShipperName              string
+// 	ShipperAddress           string
+// 	ShipperDistrict          string
+// 	ShipperSubprovince       string
+// 	ShipperProvince          string
+// 	ShipperPostcode          string
+// 	ShipperCountryCode       string
+// 	ShipperEmail             string
+// 	ShipperPhoneNumber       string
+// 	TariffCode               string
+// 	TariffSequence           string
+// 	StatisticalCode          string
+// 	EnglishDescriptionOfGood string
+// 	ThaiDescriptionOfGood    string
+// 	Quantity                 int64
+// 	QuantityUnitCode         string
+// 	NetWeight                float64
+// 	NetWeightUnitCode        string
+// 	GrossWeight              float64
+// 	GrossWeightUnitCode      string
+// 	Package                  string
+// 	PackageUnitCode          string
+// 	CifValueForeign          float64
+// 	FobValueForeign          float64
+// 	ExchangeRate             float64
+// 	CurrencyCode             string
+// 	ShippingMark             string
+// 	ConsignmentCountry       string
+// 	FreightValueForeign      float64
+// 	FreightCurrencyCode      string
+// 	InsuranceValueForeign    float64
+// 	InsuranceCurrencyCode    string
+// 	OtherChargeValueForeign  string
+// 	OtherChargeCurrencyCode  string
+// 	InvoiceNo                string
+// 	InvoiceDate              string
+// }
 
 type GetPreImportManifestModel struct {
-	UUID              string                            `json:"uuid"`
-	UploadLoggingUUID string                            `json:"uploadLoggingUUID"`
-	DischargePort     string                            `json:"dischargePort"`
-	VasselName        string                            `json:"vasselName"`
-	ArrivalDate       string                            `json:"arrivalDate"`
-	CustomerName      string                            `json:"customerName"`
-	CreatedAt         string                            `json:"createdAt"`
-	UpdatedAt         string                            `json:"updatedAt"`
-	Details           []*GetPreImportManifestDetilModel `json:"details"`
+	UUID               string                            `json:"uuid"`
+	Mawb               string                            `json:"mawb"`
+	UploadLoggingUUID  string                            `json:"uploadLoggingUUID"`
+	DischargePort      string                            `json:"dischargePort"`
+	VasselName         string                            `json:"vasselName"`
+	ArrivalDate        string                            `json:"arrivalDate"`
+	CustomerName       string                            `json:"customerName"`
+	FlightNo           string                            `json:"flightNo"`
+	OriginCountryCode  string                            `json:"originCountryCode"`
+	OriginCurrencyCode string                            `json:"originCurrencyCode"`
+	IsEnableCustomsOT  bool                              `json:"isEnableCustomsOT"`
+	CreatedAt          string                            `json:"createdAt"`
+	UpdatedAt          string                            `json:"updatedAt"`
+	Details            []*GetPreImportManifestDetilModel `json:"details,omitempty"`
 	// Summary   string // TODO:
 }
 
@@ -152,17 +257,60 @@ type GetSummaryModel struct {
 }
 
 type UploadSummaryModel struct {
-	Catogory2     *CatogorySummaryModel `json:"catogory2"`
-	Catogory3     *CatogorySummaryModel `json:"catogory3"`
-	OtherCatogory *CatogorySummaryModel `json:"otherCatogory"`
-	TotalTax      float64               `json:"totalTax"`
-	TotalHawb     int64                 `json:"totalHawb"`
+	CustomFee          *CustomFeeModel          `json:"customFee"`
+	OTCustomFee        *OTCustomFeeModel        `json:"oTCustomFee"`
+	BankFeeFee         *BankFeeFeeModel         `json:"bankFeeFee"`
+	CargoPermitFee     *CargoPermitFeeModel     `json:"cargoPermitFee"`
+	ExpressDeliveryFee *ExpressDeliveryFeeModel `json:"expressDeliveryFee"`
+	Catogory2          *CatogorySummaryModel    `json:"catogory2"`
+	Catogory3          *CatogorySummaryModel    `json:"catogory3"`
+	OtherCatogory      *CatogorySummaryModel    `json:"otherCatogory"`
+	TotalTax           float64                  `json:"totalTax"`
+	TotalHawb          int64                    `json:"totalHawb"`
 }
 
 type CatogorySummaryModel struct {
-	Category   string  `json:"category"`
-	Total      int64   `json:"total"`
-	Vat        float64 `json:"vat"`
-	Duty       float64 `json:"duty"`
-	DutyAndVat float64 `json:"dutyAndVat"`
+	Category           string          `json:"category"`
+	Total              int64           `json:"total"`
+	Vat                float64         `json:"vat"`
+	Duty               float64         `json:"duty"`
+	DutyAndVat         float64         `json:"dutyAndVat"`
+	CustomFee          decimal.Decimal `json:"customFee"`
+	OTCustomsFee       decimal.Decimal `json:"otCustomsFee"`
+	BankFee            decimal.Decimal `json:"bankFee"`
+	CargoPermitFee     decimal.Decimal `json:"cargoPermitFee"`
+	ExpressDeliveryFee decimal.Decimal `json:"expressDeliveryFee"`
+}
+
+type CustomFeeModel struct {
+	TotalDeclaration int               `json:"totalDeclaration"`
+	TotalFee         decimal.Decimal   `json:"totalFee"`
+	FloorPerHawb     decimal.Decimal   `json:"floorPerHawb"`
+	PerHawbFees      []decimal.Decimal `json:"-"`
+}
+
+type OTCustomFeeModel struct {
+	TotalDeclaration int               `json:"totalDeclaration"`
+	TotalFee         decimal.Decimal   `json:"totalFee"`
+	FloorPerHawb     decimal.Decimal   `json:"floorPerHawb"`
+	PerHawbFees      []decimal.Decimal `json:"-"`
+}
+
+type BankFeeFeeModel struct {
+	TotalDeclaration int               `json:"totalDeclaration"`
+	TotalFee         decimal.Decimal   `json:"totalFee"`
+	FloorPerHawb     decimal.Decimal   `json:"floorPerHawb"`
+	PerHawbFees      []decimal.Decimal `json:"-"`
+}
+
+type CargoPermitFeeModel struct {
+	TotalDeclaration int               `json:"totalDeclaration"`
+	TotalFee         decimal.Decimal   `json:"totalFee"`
+	FloorPerHawb     decimal.Decimal   `json:"floorPerHawb"`
+	PerHawbFees      []decimal.Decimal `json:"-"`
+}
+
+type ExpressDeliveryFeeModel struct {
+	FloorPerHawb decimal.Decimal   `json:"floorPerHawb"`
+	PerHawbFees  []decimal.Decimal `json:"-"`
 }

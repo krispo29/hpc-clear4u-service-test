@@ -2,6 +2,7 @@ package inbound
 
 import (
 	"context"
+	"errors"
 	"hpc-express-service/utils"
 	"time"
 
@@ -9,10 +10,14 @@ import (
 )
 
 type InboundExpressRepository interface {
-	// GetMawbByTimstamp(ctx context.Context, timestamp string) (*utils.GetMawb, error)
-	GetAllManifestToPreImport(ctx context.Context, uploadLoggingUUID string) (*GetPreImportManifestModel, error)
-	UpdatePreImportManifestDetail(ctx context.Context, data []*UpdatePreImportManifestDetailModel) error
-	GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) ([]*GetSummaryModel, error)
+	// GetOneMawb(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error)
+	GetAllMawb(ctx context.Context) ([]*GetPreImportManifestModel, error)
+	InsertPreImportManifestHeader(ctx context.Context, data *InsertPreImportHeaderManifestModel) (string, error)
+	UpdatePreImportManifestHeader(ctx context.Context, data *UpdatePreImportHeaderManifestModel) error
+	InsertPreImportManifestDetails(ctx context.Context, headerUUID string, details []*utils.InsertPreImportDetailManifestModel, chunkSize int) error
+	GetOneMawb(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error)
+	UpdatePreImportManifestDetail(ctx context.Context, headerUUID string, data []*UpdatePreImportManifestDetailModel) error
+	GetSummaryByHeaderUUID(ctx context.Context, headerUUID string) ([]*GetSummaryModel, error)
 }
 
 type repository struct {
@@ -27,68 +32,336 @@ func NewInboundExpressRepository(
 	}
 }
 
-// func (r repository) GetMawbByTimstamp(ctx context.Context, mawb string) (*utils.GetMawb, error) {
+// func (r repository) GetOneMawb(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error) {
 // 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 // 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
-// 	x := utils.GetMawb{}
-
+// 	result := &GetPreImportManifestModel{}
 // 	_, err := db.QueryOneContext(ctx, pg.Scan(
-// 		&x.UUID,
-// 		&x.FlightNo,
-// 		&x.Origin,
-// 		&x.Destination,
-// 		&x.Mawb,
-// 		&x.LotNo,
-// 		&x.DepartureDatetime,
-// 		&x.ArrivalDatetime,
-// 		&x.Origin,
+// 		&result.UUID,
+// 		&result.Mawb,
+// 		&result.UploadLoggingUUID,
+// 		&result.DischargePort,
+// 		&result.VasselName,
+// 		&result.ArrivalDate,
+// 		&result.CustomerName,
+// 		&result.FlightNo,
+// 		&result.OriginCountryCode,
+// 		&result.OriginCurrencyCode,
+// 		&result.IsEnableCustomsOT,
+// 		&result.CreatedAt,
+// 		&result.UpdatedAt,
 // 	), `
 // 			SELECT
-// 				maw.uuid,
-// 				maw.flight_no ,
-// 				maw.origin_code ,
-// 				maw.destination_code ,
-// 				maw.lot_no_code ,
-// 				maw.mawb,
-// 				maw.lot_no_code,
-// 				TO_CHAR(maw.departure_date_time at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS') as departure_datetime,
-// 				TO_CHAR(maw.arrival_date_time at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS') as arrival_datetime
-// 			FROM ship2cu.company_master_airway_bill maw
-// 			WHERE maw.mawb = ?
-// 			AND maw.deleted_at IS NULL
-// 			LIMIT 1
-// 	 `, mawb)
+// 				mh."uuid",
+// 				mh.mawb,
+// 				mh.upload_logging_uuid,
+// 				mh.discharge_port,
+// 				mh.vassel_name,
+// 				mh.arrival_date,
+// 				mh.customer_name,
+// 				mh.flight_no,
+// 				mh.origin_country_code,
+// 				mh.origin_currency_code,
+// 				mh.is_enable_customs_ot,
+// 				mh.created_at,
+// 				mh.updated_at
+// 			FROM public.tbl_pre_import_manifest_headers mh
+// 			WHERE mh.uuid = ?
+// 	 `, headerUUID)
 
 // 	if err != nil {
 // 		return nil, err
 // 	}
-// 	return &x, nil
+
+// 	return result, nil
+
 // }
 
-func (r repository) GetAllManifestToPreImport(ctx context.Context, uploadLoggingUUID string) (*GetPreImportManifestModel, error) {
+func (r repository) GetAllMawb(ctx context.Context) ([]*GetPreImportManifestModel, error) {
+
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
+	sqlStr := `
+			SELECT
+				mh."uuid",
+				mh.mawb,
+				mh.upload_logging_uuid,
+				mh.discharge_port,
+				mh.vassel_name,
+				mh.arrival_date,
+				mh.customer_name,
+				mh.flight_no,
+				mh.origin_country_code,
+				mh.origin_currency_code,
+				mh.is_enable_customs_ot,
+				mh.created_at,
+				mh.updated_at
+			FROM public.tbl_pre_import_manifest_headers mh
+			WHERE mh.deleted_at IS NULL
+			ORDER BY mh.created_at DESC
+	`
+
+	var list []*GetPreImportManifestModel
+	_, err := db.QueryContext(ctx, &list, sqlStr)
+
+	if err != nil {
+		return list, err
+	}
+
+	return list, nil
+}
+
+func (r repository) InsertPreImportManifestHeader(ctx context.Context, data *InsertPreImportHeaderManifestModel) (string, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second)
+
+	tx, err := db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	// Insert HeaderManifest
+	var headerUUID string
+	{
+		sqlStr :=
+			`
+			INSERT INTO public.tbl_pre_import_manifest_headers
+				(
+					mawb, discharge_port, vassel_name, arrival_date, customer_name, flight_no,  origin_country_code, origin_currency_code, is_enable_customs_ot
+				)
+			VALUES
+				(
+					?, ?, ?, ?, ?, ?, ?, ?, ?
+				)
+			RETURNING uuid
+		`
+
+		// Prepare statement
+		stmt, err := tx.Prepare(utils.PrepareSQL(sqlStr))
+		if err != nil {
+			tx.Rollback()
+			return "", err
+		}
+		defer stmt.Close()
+
+		values := []interface{}{}
+		values = append(
+			values,
+			data.Mawb,
+			data.DischargePort,
+			data.VasselName,
+			data.ArrivalDate,
+			data.CustomerName,
+			data.FlightNo,
+			data.OriginCountryCode,
+			data.OriginCurrencyCode,
+			data.IsEnableCustomsOT,
+		)
+
+		_, err = stmt.QueryOneContext(ctx, &headerUUID, values...)
+
+		if err != nil {
+			tx.Rollback()
+			return "", err
+		}
+	}
+
+	tx.Commit()
+
+	return headerUUID, nil
+}
+
+func (r repository) UpdatePreImportManifestHeader(ctx context.Context, data *UpdatePreImportHeaderManifestModel) error {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
+
+	_, err := db.ExecOneContext(ctx,
+		`
+			UPDATE public.tbl_pre_import_manifest_headers
+				SET
+					mawb=?1,
+					discharge_port=?2,
+					vassel_name=?3,
+					arrival_date=?4,
+					customer_name=?5,
+					flight_no=?6,
+					origin_country_code=?7,
+					origin_currency_code=?8,
+					is_enable_customs_ot=?9,
+					updated_at = NOW()
+			WHERE "uuid" = ?0;
+		`,
+		data.UUID,
+		utils.NewNullString(data.Mawb),
+		utils.NewNullString(data.DischargePort),
+		utils.NewNullString(data.VasselName),
+		utils.NewNullString(data.ArrivalDate),
+		utils.NewNullString(data.CustomerName),
+		utils.NewNullString(data.FlightNo),
+		utils.NewNullString(data.OriginCountryCode),
+		utils.NewNullString(data.OriginCurrencyCode),
+		data.IsEnableCustomsOT,
+	)
+
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return errors.New("not found")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (r repository) InsertPreImportManifestDetails(ctx context.Context, headerUUID string, details []*utils.InsertPreImportDetailManifestModel, chunkSize int) error {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second)
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Insert Manifest
+	// Chunk slice
+	chunked := utils.ChunkSlice(details, chunkSize)
+	{
+
+		for _, chunkedRows := range chunked {
+			sqlStr :=
+				`
+				INSERT INTO public.tbl_pre_import_manifest_details 
+					(
+						header_uuid, master_air_waybill, house_air_waybill, category, consignee_tax, consignee_branch, consignee_name, consignee_address, consignee_district, consignee_subprovince, consignee_province, consignee_postcode, consignee_country_code, consignee_email, consignee_phone_number, shipper_name, shipper_address, shipper_district, shipper_subprovince, shipper_province, shipper_postcode, shipper_country_code, shipper_email, shipper_phone_number, tariff_code, tariff_sequence, statistical_code, english_description_of_good, thai_description_of_good, quantity, quantity_unit_code, net_weight, net_weight_unit_code, gross_weight, gross_weight_unit_code, package, package_unit_code, cif_value_foreign, fob_value_foreign, exchange_rate, currency_code, shipping_mark, consignment_country, freight_value_foreign, freight_currency_code, insurance_value_foreign, insurance_currency_code, other_charge_value_foreign, other_charge_currency_code, invoice_no, invoice_date
+					) 
+					VALUES 
+			`
+			vals := []interface{}{}
+			for _, row := range chunkedRows {
+				row.HeaderUUID = headerUUID
+
+				sqlStr += "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),"
+				vals = append(vals,
+					utils.NewNullString(row.HeaderUUID),
+					utils.NewNullString(row.MasterAirWaybill),
+					utils.NewNullString(row.HouseAirWaybill),
+					utils.NewNullString(row.Category),
+					utils.NewNullString(row.ConsigneeTax),
+					utils.NewNullString(row.ConsigneeBranch),
+					utils.NewNullString(row.ConsigneeName),
+					utils.NewNullString(row.ConsigneeAddress),
+					utils.NewNullString(row.ConsigneeDistrict),
+					utils.NewNullString(row.ConsigneeSubprovince),
+					utils.NewNullString(row.ConsigneeProvince),
+					utils.NewNullString(row.ConsigneePostcode),
+					utils.NewNullString(row.ConsigneeCountryCode),
+					utils.NewNullString(row.ConsigneeEmail),
+					utils.NewNullString(row.ConsigneePhoneNumber),
+					utils.NewNullString(row.ShipperName),
+					utils.NewNullString(row.ShipperAddress),
+					utils.NewNullString(row.ShipperDistrict),
+					utils.NewNullString(row.ShipperSubprovince),
+					utils.NewNullString(row.ShipperProvince),
+					utils.NewNullString(row.ShipperPostcode),
+					utils.NewNullString(row.ShipperCountryCode),
+					utils.NewNullString(row.ShipperEmail),
+					utils.NewNullString(row.ShipperPhoneNumber),
+					utils.NewNullString(row.TariffCode),
+					utils.NewNullString(row.TariffSequence),
+					utils.NewNullString(row.StatisticalCode),
+					utils.NewNullString(row.EnglishDescriptionOfGood),
+					utils.NewNullString(row.ThaiDescriptionOfGood),
+					row.Quantity,
+					utils.NewNullString(row.QuantityUnitCode),
+					row.NetWeight,
+					utils.NewNullString(row.NetWeightUnitCode),
+					row.GrossWeight,
+					utils.NewNullString(row.GrossWeightUnitCode),
+					utils.NewNullString(row.Package),
+					utils.NewNullString(row.PackageUnitCode),
+					row.CifValueForeign,
+					row.FobValueForeign,
+					row.ExchangeRate,
+					utils.NewNullString(row.CurrencyCode),
+					utils.NewNullString(row.ShippingMark),
+					utils.NewNullString(row.ConsignmentCountry),
+					row.FreightValueForeign,
+					utils.NewNullString(row.FreightCurrencyCode),
+					row.InsuranceValueForeign,
+					utils.NewNullString(row.InsuranceCurrencyCode),
+					utils.NewNullString(row.OtherChargeValueForeign),
+					utils.NewNullString(row.OtherChargeCurrencyCode),
+					utils.NewNullString(row.InvoiceNo),
+					utils.NewNullString(row.InvoiceDate),
+				)
+			}
+
+			// remove last comma,
+			sqlStr = sqlStr[0 : len(sqlStr)-1]
+
+			// Convert symbol ? to $
+			sqlStr = utils.ReplaceSQL(sqlStr, "?")
+			// sqlStr += " ON CONFLICT (local_no) DO NOTHING returning uuid, local_no;"
+
+			// Prepare statement
+			stmt, err := tx.Prepare(sqlStr)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+			defer stmt.Close()
+
+			_, err = stmt.ExecContext(ctx, vals...)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	tx.Commit()
+
+	return nil
+}
+
+func (r repository) GetOneMawb(ctx context.Context, headerUUID string) (*GetPreImportManifestModel, error) {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
 	result := &GetPreImportManifestModel{}
 	_, err := db.QueryOneContext(ctx, pg.Scan(
 		&result.UUID,
+		&result.Mawb,
 		&result.UploadLoggingUUID,
 		&result.DischargePort,
 		&result.VasselName,
 		&result.ArrivalDate,
 		&result.CustomerName,
+		&result.FlightNo,
+		&result.OriginCountryCode,
+		&result.OriginCurrencyCode,
+		&result.CreatedAt,
+		&result.UpdatedAt,
 	), `
 			SELECT
-				mh."uuid", 
+				mh."uuid",
+				mh.mawb,
 				mh.upload_logging_uuid,
 				mh.discharge_port,
 				mh.vassel_name,
 				mh.arrival_date,
-				mh.customer_name
+				mh.customer_name,
+				mh.flight_no,
+				mh.origin_country_code,
+				mh.origin_currency_code,
+				mh.created_at,
+				mh.updated_at
 			FROM public.tbl_pre_import_manifest_headers mh
-			WHERE mh.upload_logging_uuid = ?
-	 `, uploadLoggingUUID)
+			WHERE mh.uuid = ?
+	 `, headerUUID)
 
 	if err != nil {
 		return nil, err
@@ -163,6 +436,7 @@ func (r repository) GetAllManifestToPreImport(ctx context.Context, uploadLogging
 		    LIMIT 1
 		) mhcv ON true
 		WHERE tpimd.header_uuid = $1
+		ORDER BY tpimd.category ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -177,7 +451,7 @@ func (r repository) GetAllManifestToPreImport(ctx context.Context, uploadLogging
 	return result, nil
 }
 
-func (r repository) UpdatePreImportManifestDetail(ctx context.Context, data []*UpdatePreImportManifestDetailModel) error {
+func (r repository) UpdatePreImportManifestDetail(ctx context.Context, headerUUID string, data []*UpdatePreImportManifestDetailModel) error {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
@@ -291,6 +565,7 @@ func (r repository) UpdatePreImportManifestDetail(ctx context.Context, data []*U
 			utils.NewNullString(row.InvoiceNo),
 			utils.NewNullString(row.InvoiceDate),
 			utils.NewNullString(row.UUID),
+			headerUUID,
 		)
 	}
 
@@ -304,9 +579,10 @@ func (r repository) UpdatePreImportManifestDetail(ctx context.Context, data []*U
 
 	// Concat sql
 	sqlStr += `) as c(
-		master_air_waybill, house_air_waybill, category, consignee_tax, consignee_branch, consignee_name, consignee_address, consignee_district, consignee_subprovince, consignee_province, consignee_postcode, consignee_country_code, consignee_email, consignee_phone_number, shipper_name, shipper_address, shipper_district, shipper_subprovince, shipper_province, shipper_postcode, shipper_country_code, shipper_email, shipper_phone_number, tariff_code, tariff_sequence, statistical_code, english_description_of_good, thai_description_of_good, quantity, quantity_unit_code, net_weight, net_weight_unit_code, gross_weight, gross_weight_unit_code, package, package_unit_code, cif_value_foreign, fob_value_foreign, exchange_rate, currency_code, shipping_mark, consignment_country, freight_value_foreign, freight_currency_code, insurance_value_foreign, insurance_currency_code, other_charge_value_foreign, other_charge_currency_code, invoice_no, invoice_date, uuid
+		master_air_waybill, house_air_waybill, category, consignee_tax, consignee_branch, consignee_name, consignee_address, consignee_district, consignee_subprovince, consignee_province, consignee_postcode, consignee_country_code, consignee_email, consignee_phone_number, shipper_name, shipper_address, shipper_district, shipper_subprovince, shipper_province, shipper_postcode, shipper_country_code, shipper_email, shipper_phone_number, tariff_code, tariff_sequence, statistical_code, english_description_of_good, thai_description_of_good, quantity, quantity_unit_code, net_weight, net_weight_unit_code, gross_weight, gross_weight_unit_code, package, package_unit_code, cif_value_foreign, fob_value_foreign, exchange_rate, currency_code, shipping_mark, consignment_country, freight_value_foreign, freight_currency_code, insurance_value_foreign, insurance_currency_code, other_charge_value_foreign, other_charge_currency_code, invoice_no, invoice_date, uuid, header_uuid
 	)
 	WHERE c.uuid::text = t.uuid::text
+	AND c.header_uuid = t.header_uuid
 	`
 
 	// Prepare statement
@@ -327,11 +603,7 @@ func (r repository) UpdatePreImportManifestDetail(ctx context.Context, data []*U
 	return nil
 }
 
-// func (r repository) GetOneByUploaddingUUID(ctx context.Context, uuid string) (*GetOneModel, error) {
-// 	return nil, nil
-// }
-
-func (r repository) GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) ([]*GetSummaryModel, error) {
+func (r repository) GetSummaryByHeaderUUID(ctx context.Context, headerUUID string) ([]*GetSummaryModel, error) {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
@@ -343,17 +615,16 @@ func (r repository) GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggin
 			tpimd.category,
 			tpimd.cif_value_foreign*0.07 as vat,
 			tpimd.cif_value_foreign*(mhcv.duty_rate/100) as duty
-		FROM public.tbl_upload_loggings ul
-		left join tbl_pre_import_manifest_headers tpimh on tpimh.upload_logging_uuid = ul."uuid"
-		left join tbl_pre_import_manifest_details tpimd on tpimd.header_uuid = tpimh."uuid"
+		FROM public.tbl_pre_import_manifest_headers mh
+		left join tbl_pre_import_manifest_details tpimd on tpimd.header_uuid = mh."uuid"
 		LEFT JOIN LATERAL (
 		    SELECT duty_rate
 		    FROM master_hs_code_v2
 		    WHERE TRIM(UPPER(goods_en)) = TRIM(UPPER(tpimd.english_description_of_good))
 		    LIMIT 1
 		) mhcv ON true
-		where ul.uuid = ?0
-	`, uploadLoggingUUID)
+		where mh.uuid = ?0
+	`, headerUUID)
 
 	if err != nil {
 		return list, err

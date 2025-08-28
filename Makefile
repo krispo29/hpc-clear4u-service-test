@@ -1,6 +1,6 @@
 PROJECT_ID = the-deft-technology
 IMAGE_NAME = hpc-express-service
-version ?= v0.0.14
+version ?= v0.0.16
 # version ?= staging
 VERSION = ${version}
 EXPOSE_PORT = 80

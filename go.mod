@@ -18,6 +18,7 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/lib/pq v1.10.9
 	github.com/satori/go.uuid v1.2.0
+	github.com/shopspring/decimal v1.4.0
 	github.com/xuri/excelize/v2 v2.9.0
 	golang.org/x/crypto v0.30.0
 )

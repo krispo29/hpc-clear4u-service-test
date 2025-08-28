@@ -13,7 +13,7 @@ import (
 )
 
 type Service interface {
-	UploadPreImportManifests(ctx context.Context, uploadLogUUID string, fileBytes []byte) (*ResponseUploadManifestModel, error)
+	ConvertToPreImportDetails(ctx context.Context, uploadLogUUID string, fileBytes []byte) ([]*utils.InsertPreImportDetailManifestModel, error)
 }
 
 type service struct {
@@ -31,7 +31,7 @@ func NewService(
 	}
 }
 
-func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID string, fileBytes []byte) (*ResponseUploadManifestModel, error) {
+func (s *service) ConvertToPreImportDetails(ctx context.Context, uploadLogUUID string, fileBytes []byte) ([]*utils.InsertPreImportDetailManifestModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
 
@@ -65,7 +65,8 @@ func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID st
 
 	list := []*UploadManifestModel{}
 	resultMap := make(map[string]int64)
-	var mawb, countryCode, currencyCode string
+	// var mawb, countryCode, currencyCode string
+	var countryCode, currencyCode string
 	var hawbTotal int64
 	for j := 2; j <= len(rows); j++ {
 		data := UploadManifestModel{}
@@ -152,7 +153,7 @@ func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID st
 		countryCode = data.Origin
 		currencyCode = data.Currency
 
-		mawb = data.Mawb
+		// mawb = data.Mawb
 		hawbTotal++
 		list = append(list, &data)
 	}
@@ -161,12 +162,13 @@ func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID st
 		return nil, errors.New("MAWB are more than 1")
 	}
 
-	mawbData, err := s.selfRepo.GetMawb(ctx, mawb)
-	if err != nil {
-		log.Println("GetMawb: ", err.Error())
-		// return nil, err
-		mawbData = &utils.GetMawb{}
-	}
+	// Not use
+	// mawbData, err := s.selfRepo.GetMawb(ctx, mawb)
+	// if err != nil {
+	// 	log.Println("GetMawb: ", err.Error())
+	// 	// return nil, err
+	// 	mawbData = &utils.GetMawb{}
+	// }
 
 	shipperBrandsData, err := s.selfRepo.GetShipperBrands(ctx)
 	if err != nil {
@@ -174,12 +176,14 @@ func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID st
 		return nil, err
 	}
 
+	// XXXXX
 	masterHsCodeData, err := s.selfRepo.GetMasterHsCode(ctx)
 	if err != nil {
 		log.Println("GetMasterHsCode: ", err.Error())
 		return nil, err
 	}
 
+	// Half
 	freightConfig, err := s.selfRepo.GetFreightData(ctx, uploadLogUUID, countryCode, currencyCode)
 	if err != nil {
 		log.Println("GetFreightData: ", err.Error())
@@ -196,24 +200,25 @@ func (s *service) UploadPreImportManifests(ctx context.Context, uploadLogUUID st
 		details = append(details, v.ConvertToManifest(shipperBrandsData, masterHsCodeData, freightConfig))
 	}
 
-	manifest := &utils.InsertPreImportHeaderManifestModel{
-		UploadLoggingUUID:  uploadLogUUID,
-		DischargePort:      "1190",
-		VasselName:         mawbData.FlightNo,        // SHIP2CU
-		ArrivalDate:        mawbData.ArrivalDatetime, // SHIP2CU
-		CustomerName:       "",
-		OriginCountryCode:  countryCode,
-		OriginCurrencyCode: currencyCode,
-		Details:            details,
-	}
+	return details, nil
+	// manifest := &utils.InsertPreImportHeaderManifestModel{
+	// 	UploadLoggingUUID:  uploadLogUUID,
+	// 	DischargePort:      "1190",
+	// 	VasselName:         mawbData.FlightNo,        // SHIP2CU
+	// 	ArrivalDate:        mawbData.ArrivalDatetime, // SHIP2CU
+	// 	CustomerName:       "",
+	// 	OriginCountryCode:  countryCode,
+	// 	OriginCurrencyCode: currencyCode,
+	// 	Details:            details,
+	// }
 
-	err = s.selfRepo.InsertPreImportManifest(ctx, manifest, 200)
-	if err != nil {
-		return nil, err
-	}
+	// err = s.selfRepo.InsertPreImportManifest(ctx, manifest, 200)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return &ResponseUploadManifestModel{
-		Mawb:   mawb,
-		Amount: hawbTotal,
-	}, nil
+	// return &ResponseUploadManifestModel{
+	// 	Mawb:   mawb,
+	// 	Amount: hawbTotal,
+	// }, nil
 }

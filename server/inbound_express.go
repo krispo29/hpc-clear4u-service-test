@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator"
 )
 
 type inboundExpressHandler struct {
@@ -20,22 +21,114 @@ func (h *inboundExpressHandler) router() chi.Router {
 
 	r := chi.NewRouter()
 
-	r.Post("/upload-update-manifest", h.uploadUpdateManifest)
-	r.Route("/upload", func(r chi.Router) {
-		r.Post("/", h.uploadManifest)
-		r.Get("/{uploadLoggingUUID}/summary", h.getSummary)
-		r.Get("/{uploadLoggingUUID}", h.getManifest)
+	r.Route("/mawb", func(r chi.Router) {
+		r.Route("/download", func(r chi.Router) {
+			r.Get("/pre-import/{headerUUID}", h.downloadPreImport)
+			r.Get("/raw-pre-import/{headerUUID}", h.downloadRawPreImport)
+		})
+		r.Route("/upload", func(r chi.Router) {
+			r.Post("/", h.uploadManifestDetails)
+			r.Post("/update-raw-manifest", h.uploadUpdateRawPreImport)
+		})
+		r.Get("/", h.getAllMawb)
+		r.Post("/", h.createMawb)
+		r.Put("/", h.updateMawb)
+		r.Get("/{headerUUID}/summary", h.getSummary)
+		r.Get("/{headerUUID}", h.getManifest)
+		// r.Put("/", h.updateMawb)
 	})
 
-	r.Route("/download", func(r chi.Router) {
-		r.Get("/pre-import", h.downloadPreImport)
-		r.Get("/raw-pre-import", h.downloadRawPreImport)
-	})
+	// r.Post("/upload-update-manifest", h.uploadUpdateManifest)
+	// r.Route("/upload", func(r chi.Router) {
+	// r.Post("/", h.uploadManifestDetails)
+	// r.Get("/{uploadLoggingUUID}/summary", h.getSummary)
+	// r.Get("/{uploadLoggingUUID}", h.getManifest)
+	// })
+
+	// r.Route("/download", func(r chi.Router) {
+	// 	r.Get("/pre-import", h.downloadPreImport)
+	// 	r.Get("/raw-pre-import", h.downloadRawPreImport)
+	// })
 
 	return r
 }
 
-func (h *inboundExpressHandler) uploadManifest(w http.ResponseWriter, r *http.Request) {
+func (h *inboundExpressHandler) getAllMawb(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	result, err := h.s.GetAllMawb(r.Context())
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "success"))
+}
+
+func (h *inboundExpressHandler) createMawb(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+		_ = ctx
+	}
+
+	data := &inbound.InsertPreImportHeaderManifestModel{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Validate Data
+	validate := validator.New()
+	err := validate.Struct(data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	uuid, err := h.s.InsertPreImportManifestHeader(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(uuid, "success"))
+}
+
+func (h *inboundExpressHandler) updateMawb(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+		_ = ctx
+	}
+
+	data := &inbound.UpdatePreImportHeaderManifestModel{}
+	if err := render.Bind(r, data); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	// Validate Data
+	validate := validator.New()
+	err := validate.Struct(data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	err = h.s.UpdatePreImportManifestHeader(r.Context(), data)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(nil, "success"))
+}
+
+func (h *inboundExpressHandler) uploadManifestDetails(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -56,12 +149,13 @@ func (h *inboundExpressHandler) uploadManifest(w http.ResponseWriter, r *http.Re
 	}
 
 	templateCode := r.FormValue("templateCode")
+	headerUUID := r.FormValue("headerUUID")
 	userUUID := GetUserUUIDFromContext(r)
 
 	log.Println("#1 ", templateCode)
 
 	// result, err := h.s.UploadManifest(ctx, userUUID, handler.Filename, fileBytes)
-	err = h.s.UploadManifest(ctx, userUUID, handler.Filename, templateCode, fileBytes)
+	err = h.s.UploadManifestDetails(ctx, userUUID, headerUUID, handler.Filename, templateCode, fileBytes)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -76,13 +170,13 @@ func (h *inboundExpressHandler) downloadPreImport(w http.ResponseWriter, r *http
 		ctx = context.Background()
 	}
 
-	uploadLoggingUUID := r.URL.Query().Get("uploadLoggingUUID")
-	if len(uploadLoggingUUID) == 0 {
+	headerUUID := chi.URLParam(r, "headerUUID")
+	if len(headerUUID) == 0 {
 		render.Render(w, r, ErrInvalidRequest(errors.New("required uuid")))
 		return
 	}
 
-	fileName, zipBuf, err := h.s.DownloadPreImport(ctx, uploadLoggingUUID)
+	fileName, zipBuf, err := h.s.DownloadPreImport(ctx, headerUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -101,13 +195,13 @@ func (h *inboundExpressHandler) downloadRawPreImport(w http.ResponseWriter, r *h
 		ctx = context.Background()
 	}
 
-	uploadLoggingUUID := r.URL.Query().Get("uploadLoggingUUID")
-	if len(uploadLoggingUUID) == 0 {
+	headerUUID := chi.URLParam(r, "headerUUID")
+	if len(headerUUID) == 0 {
 		render.Render(w, r, ErrInvalidRequest(errors.New("required uuid")))
 		return
 	}
 
-	fileName, excelBuf, err := h.s.DownloadRawPreImport(ctx, uploadLoggingUUID)
+	fileName, excelBuf, err := h.s.DownloadRawPreImport(ctx, headerUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -123,7 +217,7 @@ func (h *inboundExpressHandler) downloadRawPreImport(w http.ResponseWriter, r *h
 	w.Write(excelBuf.Bytes())
 }
 
-func (h *inboundExpressHandler) uploadUpdateManifest(w http.ResponseWriter, r *http.Request) {
+func (h *inboundExpressHandler) uploadUpdateRawPreImport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -143,9 +237,10 @@ func (h *inboundExpressHandler) uploadUpdateManifest(w http.ResponseWriter, r *h
 		return
 	}
 
+	headerUUID := r.FormValue("headerUUID")
 	userUUID := GetUserUUIDFromContext(r)
 
-	err = h.s.UploadUpdateRawPreImport(ctx, userUUID, handler.Filename, fileBytes)
+	err = h.s.UploadUpdateRawPreImport(ctx, userUUID, headerUUID, handler.Filename, fileBytes)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -160,9 +255,9 @@ func (h *inboundExpressHandler) getManifest(w http.ResponseWriter, r *http.Reque
 		ctx = context.Background()
 	}
 
-	uploadLoggingUUID := chi.URLParam(r, "uploadLoggingUUID")
+	headerUUID := chi.URLParam(r, "headerUUID")
 
-	result, err := h.s.GetOneByUploaddingUUID(r.Context(), uploadLoggingUUID)
+	result, err := h.s.GetOneByHeaderUUID(r.Context(), headerUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
@@ -177,9 +272,9 @@ func (h *inboundExpressHandler) getSummary(w http.ResponseWriter, r *http.Reques
 		ctx = context.Background()
 	}
 
-	uploadLoggingUUID := chi.URLParam(r, "uploadLoggingUUID")
+	headerUUID := chi.URLParam(r, "headerUUID")
 
-	result, err := h.s.GetSummaryByUploaddingUUID(r.Context(), uploadLoggingUUID)
+	result, err := h.s.GetSummaryByHeaderUUID(r.Context(), headerUUID)
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return

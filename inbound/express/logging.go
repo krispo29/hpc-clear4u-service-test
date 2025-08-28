@@ -17,8 +17,42 @@ type loggingService struct {
 func NewLoggingService(logger log.Logger, s InboundExpressService) InboundExpressService {
 	return &loggingService{logger, s}
 }
+func (s *loggingService) GetAllMawb(ctx context.Context) (result []*GetPreImportManifestModel, err error) {
+	defer func(begin time.Time) {
+		s.logger.Log(
+			"method", "get_all_mawb",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.GetAllMawb(ctx)
+}
 
-func (s *loggingService) UploadManifest(ctx context.Context, userUUID, originName, templateCode string, fileBytes []byte) (err error) {
+func (s *loggingService) InsertPreImportManifestHeader(ctx context.Context, data *InsertPreImportHeaderManifestModel) (uuid string, err error) {
+	defer func(begin time.Time) {
+		s.logger.Log(
+			"method", "create_mawb",
+			"uuid", uuid,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.InsertPreImportManifestHeader(ctx, data)
+}
+
+func (s *loggingService) UpdatePreImportManifestHeader(ctx context.Context, data *UpdatePreImportHeaderManifestModel) (err error) {
+	defer func(begin time.Time) {
+		s.logger.Log(
+			"method", "update_mawb",
+			"uuid", data.UUID,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.UpdatePreImportManifestHeader(ctx, data)
+}
+
+func (s *loggingService) UploadManifestDetails(ctx context.Context, userUUID, headerUUID, originName, templateCode string, fileBytes []byte) (err error) {
 	defer func(begin time.Time) {
 		s.logger.Log(
 			"method", "upload_manifest",
@@ -29,7 +63,7 @@ func (s *loggingService) UploadManifest(ctx context.Context, userUUID, originNam
 			"err", err,
 		)
 	}(time.Now())
-	return s.next.UploadManifest(ctx, userUUID, originName, templateCode, fileBytes)
+	return s.next.UploadManifestDetails(ctx, userUUID, headerUUID, originName, templateCode, fileBytes)
 }
 
 func (s *loggingService) DownloadPreImport(ctx context.Context, uploadLoggingUUID string) (fileName string, result *bytes.Buffer, err error) {
@@ -57,7 +91,7 @@ func (s *loggingService) DownloadRawPreImport(ctx context.Context, uploadLogging
 	return s.next.DownloadRawPreImport(ctx, uploadLoggingUUID)
 }
 
-func (s *loggingService) UploadUpdateRawPreImport(ctx context.Context, userUUID, originName string, fileBytes []byte) (err error) {
+func (s *loggingService) UploadUpdateRawPreImport(ctx context.Context, userUUID, headerUUID, originName string, fileBytes []byte) (err error) {
 	defer func(begin time.Time) {
 		s.logger.Log(
 			"method", "download_pre_import",
@@ -67,29 +101,29 @@ func (s *loggingService) UploadUpdateRawPreImport(ctx context.Context, userUUID,
 			"err", err,
 		)
 	}(time.Now())
-	return s.next.UploadUpdateRawPreImport(ctx, userUUID, originName, fileBytes)
+	return s.next.UploadUpdateRawPreImport(ctx, userUUID, headerUUID, originName, fileBytes)
 }
 
-func (s *loggingService) GetOneByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (result *GetPreImportManifestModel, err error) {
+func (s *loggingService) GetOneByHeaderUUID(ctx context.Context, headerUUID string) (result *GetPreImportManifestModel, err error) {
 	defer func(begin time.Time) {
 		s.logger.Log(
-			"method", "get_one_by_upload_uuid",
-			"upload_uuid", uploadLoggingUUID,
+			"method", "get_one_by_header_uuid",
+			"header_uuid", headerUUID,
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return s.next.GetOneByUploaddingUUID(ctx, uploadLoggingUUID)
+	return s.next.GetOneByHeaderUUID(ctx, headerUUID)
 }
 
-func (s *loggingService) GetSummaryByUploaddingUUID(ctx context.Context, uploadLoggingUUID string) (result *UploadSummaryModel, err error) {
+func (s *loggingService) GetSummaryByHeaderUUID(ctx context.Context, headerUUID string) (result *UploadSummaryModel, err error) {
 	defer func(begin time.Time) {
 		s.logger.Log(
 			"method", "get_summary",
-			"upload_uuid", uploadLoggingUUID,
+			"header_uuid", headerUUID,
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return s.next.GetSummaryByUploaddingUUID(ctx, uploadLoggingUUID)
+	return s.next.GetSummaryByHeaderUUID(ctx, headerUUID)
 }

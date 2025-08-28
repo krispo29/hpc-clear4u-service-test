@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -22,6 +24,7 @@ func (h *settingHandler) router() chi.Router {
 	r.Route("/hscode", func(r chi.Router) {
 		r.Post("/", h.createHsCode)
 		r.Get("/", h.getAllHsCode)
+		r.Get("/export", h.exportHsCode)
 		r.Get("/{uuid}", h.getOneHsCode)
 		r.Put("/", h.updateHsCode)
 		r.Patch("/{uuid}", h.updateStatusHsCode)
@@ -233,4 +236,28 @@ func (h *settingHandler) updateStatusHsCode(w http.ResponseWriter, r *http.Reque
 
 	render.Respond(w, r, SuccessResponse(nil, "success"))
 
+}
+
+func (h *settingHandler) exportHsCode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	excelBuf, err := h.s.ExportHsCode(ctx)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	fileName := fmt.Sprintf("master_hs_code_%v.xlsx", time.Now().Format("20060102"))
+
+	// Send ZIP file as response
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+	w.Header().Set("File-Name", fileName)
+	w.Header().Set("Content-Transfer-Encoding", "binary")
+	w.Header().Set("Expires", "0")
+	w.WriteHeader(http.StatusOK)
+	w.Write(excelBuf.Bytes())
 }

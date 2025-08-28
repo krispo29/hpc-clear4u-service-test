@@ -13,7 +13,7 @@ import (
 type Repository interface {
 	// HS Code
 	CreateHsCode(ctx context.Context, data *CreateHsCodeModel) (string, error)
-	GetAllHsCode(ctx context.Context) ([]*GetHsCodeModel, error)
+	GetAllHsCode(ctx context.Context, orderby string) ([]*GetHsCodeModel, error)
 	GetHsCodeByUUID(ctx context.Context, uuid string) (*GetHsCodeModel, error)
 	UpdateHsCode(ctx context.Context, data *UpdateHsCodeModel) error
 	UpdateStatusHsCode(ctx context.Context, uuid string) error
@@ -92,13 +92,11 @@ func (r repository) CreateHsCode(ctx context.Context, data *CreateHsCodeModel) (
 	return uuid, nil
 }
 
-func (r repository) GetAllHsCode(ctx context.Context) ([]*GetHsCodeModel, error) {
+func (r repository) GetAllHsCode(ctx context.Context, orderby string) ([]*GetHsCodeModel, error) {
 	db := ctx.Value("postgreSQLConn").(*pg.DB)
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
-	var list []*GetHsCodeModel
-	_, err := db.QueryContext(ctx, &list,
-		`
+	strQuery := `
 			SELECT
 				"uuid",
 				goods_en,
@@ -127,7 +125,17 @@ func (r repository) GetAllHsCode(ctx context.Context) ([]*GetHsCodeModel, error)
 						ELSE true
 				END as is_deleted
 			FROM public.master_hs_code_v2
-	`)
+	`
+
+	if len(orderby) == 0 {
+		strQuery += " ORDER BY id DESC"
+	} else {
+		strQuery += " " + orderby
+	}
+
+	var list []*GetHsCodeModel
+	_, err := db.QueryContext(ctx, &list,
+		strQuery)
 
 	if err != nil {
 		return list, err
