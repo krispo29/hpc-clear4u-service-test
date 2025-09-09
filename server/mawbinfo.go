@@ -1108,7 +1108,12 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	pdf.AddUTF8FontFromBytes("THSarabunNew BoldItalic", "", frontTHSarabunNewBoldItalic)
 	pdf.AddUTF8FontFromBytes("THSarabunNew Italic", "", frontTHSarabunNewItalic)
 
-	pdf.SetFont("THSarabunNew Bold", "", 10)
+	const fontScale = 0.85
+	setFont := func(font, style string, size float64) {
+		pdf.SetFont(font, style, size*fontScale)
+	}
+
+	setFont("THSarabunNew Bold", "", 10)
 
 	pdf.AddPage()
 	pdf.SetMargins(0, 0, 0)
@@ -1127,15 +1132,15 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 		)
 	}
 
-	pdf.SetFont("THSarabunNew Bold", "", 22)
+	setFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(7, 4)
 	pdf.MultiCell(51, 5, data.MAWB, "0", "L", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 22)
+	setFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(143, 4)
 	pdf.MultiCell(51, 5, data.HAWB, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	setFont("THSarabunNew Bold", "", 12)
 	pdf.SetXY(9, 19)
 	pdf.MultiCell(89, 3.5, data.ShipperNameAndAddress, "0", "LT", false)
 
@@ -1168,23 +1173,23 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 		}
 	}
 
-	pdf.SetFont("THSarabunNew Bold", "", 18)
+	setFont("THSarabunNew Bold", "", 12)
 	pdf.SetXY(9, 45)
 	pdf.MultiCell(89, 3.5, data.ConsigneeNameAndAddress, "0", "LT", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 16)
+	setFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(8, 65)
 	pdf.CellFormat(89, 15, data.IssuingCarrierAgentName, "0", 0, "C", false, 0, "")
 
-	pdf.SetFont("THSarabunNew Bold", "", 20)
-	pdf.SetXY(98, 67)
+	setFont("THSarabunNew Bold", "", 12)
+	pdf.SetXY(98, 60)
 	pdf.MultiCell(97, 6, data.AccountingInfomation, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 15)
+	setFont("THSarabunNew Bold", "", 15)
 	pdf.SetXY(8, 84)
 	pdf.CellFormat(44, 6, data.AgentsIATACode, "0", 0, "L", false, 0, "")
 
-	pdf.SetFont("THSarabunNew Bold", "", 15)
+	setFont("THSarabunNew Bold", "", 15)
 	pdf.SetXY(53, 84)
 	pdf.MultiCell(44, 6, data.AccountNo, "0", "L", false)
 
@@ -1254,14 +1259,14 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	pdf.SetXY(98, 111)
 	pdf.MultiCell(28, 7, data.AmountOfInsurance, "0", "C", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 16)
+	setFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(9, 119)
 	pdf.MultiCell(156, 12, data.HandlingInfomation, "0", "L", false)
 
 	pdf.SetXY(165, 125)
 	pdf.MultiCell(30, 7, data.SCI, "0", "L", false)
 
-	pdf.SetFont("THSarabunNew Bold", "", 15)
+	setFont("THSarabunNew Bold", "", 15)
 	dstartX := float64(8)
 	dStartY := float64(143)
 	pdf.SetY(dStartY)
@@ -1306,7 +1311,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 		pdf.CellFormat(3, 7, "", "0", 0, "CM", false, 0, "")
 		pdf.MultiCell(57, 4, v.NatureAndQuantity, "0", "L", false)
 		if len(v.Dims) > 0 {
-			pdf.SetFont("THSarabunNew Bold", "", 18) // เพิ่มขนาดฟอนต์เป็นสองเท่า (9 -> 18)
+			setFont("THSarabunNew Bold", "", 18)
 
 			// เริ่มพิมพ์ใต้แถวรายการ
 			dimStartY := currentY + 7
@@ -1335,7 +1340,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 			pdf.SetXY(32, lineY)                                                              // ย้ายจาก X=8 มาที่ X=32 เพื่อให้อยู่ตรงกลาง
 			pdf.MultiCell(45, 6, fmt.Sprintf("VOL: %.3f CBM", v.TotalVolume), "", "L", false) // เพิ่มความสูงเป็น 6
 
-			pdf.SetFont("THSarabunNew Bold", "", 15)
+			setFont("THSarabunNew Bold", "", 15)
 			pdf.SetY(pdf.GetY() + 4) // เพิ่มระยะห่างก่อนรายการถัดไป
 		} else {
 			pdf.Ln(2.5)
@@ -1372,7 +1377,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 		pdf.Ln(1)
 	}
 
-	pdf.SetFont("THSarabunNew Bold", "", 16)
+	setFont("THSarabunNew Bold", "", 16)
 	pdf.SetXY(82, 247)
 	pdf.MultiCell(120, 5, data.Signature1, "0", "C", false)
 
@@ -1381,13 +1386,13 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	pdf.CellFormat(39, 5, data.Signature2Place, "0", 0, "C", false, 0, "")
 	pdf.CellFormat(39, 5, data.Signature2Issuing, "0", 0, "C", false, 0, "")
 
-	pdf.SetFont("THSarabunNew Bold", "", 22)
+	setFont("THSarabunNew Bold", "", 22)
 	pdf.SetXY(136, 280)
 	pdf.MultiCell(51, 3, data.MAWB, "0", "L", false)
 
 	if isPreview {
 		// Add watermark
-		pdf.SetFont("THSarabunNew Bold", "", 85)
+		setFont("THSarabunNew Bold", "", 85)
 		pdf.SetTextColor(200, 200, 200) // Light grey
 		pdf.TransformBegin()
 		pdf.TransformRotate(45, width/2, height/2) // Rotate 45 degrees
