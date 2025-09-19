@@ -127,6 +127,8 @@ func UploadDocumentsToLocal(path string, files []*multipart.FileHeader) ([]map[s
 		"application/pdf":          true,
 		"application/vnd.ms-excel": true,
 		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
+		"application/msword": true,
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 		"image/jpeg": true,
 		"image/png":  true,
 		"image/jpg":  true,
@@ -163,6 +165,10 @@ func UploadDocumentsToLocal(path string, files []*multipart.FileHeader) ([]map[s
 			} else {
 				filetype = "application/vnd.ms-excel"
 			}
+		} else if ext == ".docx" {
+			filetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		} else if ext == ".doc" {
+			filetype = "application/msword"
 		}
 
 		// Validate file type
