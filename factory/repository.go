@@ -7,6 +7,7 @@ import (
 	"hpc-express-service/dashboard"
 	"hpc-express-service/dropdown"
 	inbound "hpc-express-service/inbound/express"
+	seaWaybill "hpc-express-service/inbound/seawaybill"
 	"hpc-express-service/mawb"
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
@@ -28,6 +29,7 @@ type RepositoryFactory struct {
 	CompareRepo                   compare.ExcelRepositoryInterface
 	DropdownRepo                  dropdown.Repository
 	InboundExpressRepositoryRepo  inbound.InboundExpressRepository
+	SeaWaybillDetailRepo          seaWaybill.Repository
 	Ship2cuRepo                   ship2cu.Repository
 	UploadlogRepo                 uploadlog.Repository
 	OutboundExpressRepositoryRepo outboundExpress.OutboundExpressRepository
@@ -52,6 +54,7 @@ func NewRepositoryFactory() *RepositoryFactory {
 		CommonRepo:                    common.NewRepository(timeoutContext),
 		DropdownRepo:                  dropdown.NewRepository(),
 		InboundExpressRepositoryRepo:  inbound.NewInboundExpressRepository(timeoutContext),
+		SeaWaybillDetailRepo:          seaWaybill.NewRepository(timeoutContext),
 		Ship2cuRepo:                   ship2cu.NewRepository(timeoutContext),
 		UploadlogRepo:                 uploadlog.NewRepository(timeoutContext),
 		OutboundExpressRepositoryRepo: outboundExpress.NewOutboundExpressRepository(timeoutContext),

@@ -161,6 +161,8 @@ func New(
 			r.Route("/inbound", func(r chi.Router) {
 				inboundExpressServiceSvc := inboundExpressHandler{s.svcFactory.InboundExpressServiceSvc}
 				r.Mount("/express", inboundExpressServiceSvc.router())
+				seaWaybillServiceSvc := seaWaybillHandler{s.svcFactory.SeaWaybillDetailSvc}
+				r.Mount("/sea-waybill-details", seaWaybillServiceSvc.router())
 			})
 
 			r.Route("/outbound", func(r chi.Router) {
