@@ -151,9 +151,6 @@ func New(
 			}
 			r.Mount("/mawbinfo", mawbInfoSvc.router())
 
-			seaWaybillDetailsSvc := seaWaybillDetailsHandler{s.svcFactory.SeaWaybillDetailsSvc}
-			r.Mount("/shipment-details", seaWaybillDetailsSvc.router())
-
 			compareSvc := excelHandler{s.svcFactory.CompareSvc}
 			r.Mount("/compare", compareSvc.router())
 

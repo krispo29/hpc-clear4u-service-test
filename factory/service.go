@@ -11,7 +11,6 @@ import (
 	"hpc-express-service/dropdown"
 	"hpc-express-service/gcs"
 	inbound "hpc-express-service/inbound/express"
-	"hpc-express-service/inbound/seawaybilldetails"
 	"hpc-express-service/mawb"
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
@@ -39,7 +38,6 @@ type ServiceFactory struct {
 	ShopeeSvc                 shopee.Service
 	MawbSvc                   mawb.Service
 	MawbInfoSvc               mawbinfo.Service
-	SeaWaybillDetailsSvc      seawaybilldetails.Service
 	CustomerSvc               customer.Service
 	DashboardSvc              dashboard.Service
 	UserSvc                   user.Service
@@ -108,14 +106,6 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 	// MawbInfo
 	mawbInfoSvc := mawbinfo.NewService(
 		repo.MawbInfoRepo,
-		timeoutContext,
-		gcsClient,
-		conf,
-	)
-
-	// Sea Waybill Details
-	seaWaybillDetailsSvc := seawaybilldetails.NewService(
-		repo.SeaWaybillDetailsRepo,
 		timeoutContext,
 		gcsClient,
 		conf,
@@ -192,7 +182,6 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		ShopeeSvc:                 shopeeSvc,
 		MawbSvc:                   mawbSvc,
 		MawbInfoSvc:               mawbInfoSvc,
-		SeaWaybillDetailsSvc:      seaWaybillDetailsSvc,
 		CustomerSvc:               customerSvc,
 		DashboardSvc:              dashboardSvc,
 		UserSvc:                   userSvc,

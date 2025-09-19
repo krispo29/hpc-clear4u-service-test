@@ -7,7 +7,6 @@ import (
 	"hpc-express-service/dashboard"
 	"hpc-express-service/dropdown"
 	inbound "hpc-express-service/inbound/express"
-	"hpc-express-service/inbound/seawaybilldetails"
 	"hpc-express-service/mawb"
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
@@ -36,7 +35,6 @@ type RepositoryFactory struct {
 	ShopeeRepo                    shopee.Repository
 	MawbRepo                      mawb.Repository
 	MawbInfoRepo                  mawbinfo.Repository
-	SeaWaybillDetailsRepo         seawaybilldetails.Repository
 	CustomerRepo                  customer.Repository
 	DashboardRepo                 dashboard.Repository
 	UserRepo                      user.Repository
@@ -61,7 +59,6 @@ func NewRepositoryFactory() *RepositoryFactory {
 		ShopeeRepo:                    shopee.NewRepository(timeoutContext),
 		MawbRepo:                      mawb.NewRepository(timeoutContext),
 		MawbInfoRepo:                  mawbinfo.NewRepository(timeoutContext),
-		SeaWaybillDetailsRepo:         seawaybilldetails.NewRepository(timeoutContext),
 		CustomerRepo:                  customer.NewRepository(timeoutContext),
 		DashboardRepo:                 dashboard.NewRepository(timeoutContext),
 		UserRepo:                      user.NewRepository(timeoutContext),
