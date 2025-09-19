@@ -1141,7 +1141,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	pdf.MultiCell(51, 5, data.HAWB, "0", "C", false)
 
 	setFont("THSarabunNew Bold", "", 12)
-	pdf.SetXY(9, 19)
+	pdf.SetXY(9, 15)
 	pdf.MultiCell(89, 3.5, data.ShipperNameAndAddress, "0", "LT", false)
 
 	// pdf.SetFont("THSarabunNew Bold", "", 20)
@@ -1174,7 +1174,7 @@ func (h *mawbInfoHandler) generateDraftMAWBPDF(data *draftMawb.DraftMAWBInput, i
 	}
 
 	setFont("THSarabunNew Bold", "", 12)
-	pdf.SetXY(9, 45)
+	pdf.SetXY(9, 41)
 	pdf.MultiCell(89, 3.5, data.ConsigneeNameAndAddress, "0", "LT", false)
 
 	setFont("THSarabunNew Bold", "", 16)
