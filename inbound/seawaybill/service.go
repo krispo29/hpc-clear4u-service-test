@@ -23,6 +23,7 @@ import (
 // Service exposes business logic for sea waybill details.
 type Service interface {
 	CreateSeaWaybillDetail(ctx context.Context, data *CreateSeaWaybillDetailRequest) (*SeaWaybillDetailResponse, error)
+	ListSeaWaybillDetails(ctx context.Context) ([]*SeaWaybillDetailResponse, error)
 	GetSeaWaybillDetail(ctx context.Context, uuid string) (*SeaWaybillDetailResponse, error)
 	UpdateSeaWaybillDetail(ctx context.Context, uuid string, data *UpdateSeaWaybillDetailRequest) (*SeaWaybillDetailResponse, error)
 	DeleteAttachment(ctx context.Context, uuid, fileName string) error
@@ -90,6 +91,13 @@ func (s *service) CreateSeaWaybillDetail(ctx context.Context, data *CreateSeaWay
 	}
 
 	return result, nil
+}
+
+func (s *service) ListSeaWaybillDetails(ctx context.Context) ([]*SeaWaybillDetailResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
+
+	return s.selfRepo.ListSeaWaybillDetails(ctx)
 }
 
 func (s *service) GetSeaWaybillDetail(ctx context.Context, uuid string) (*SeaWaybillDetailResponse, error) {
