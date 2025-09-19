@@ -11,6 +11,7 @@ import (
 	"hpc-express-service/dropdown"
 	"hpc-express-service/gcs"
 	inbound "hpc-express-service/inbound/express"
+	seaWaybill "hpc-express-service/inbound/seawaybill"
 	"hpc-express-service/mawb"
 	cargoManifest "hpc-express-service/outbound/cargomanifest"
 	draftMawb "hpc-express-service/outbound/draftmawb"
@@ -31,6 +32,7 @@ type ServiceFactory struct {
 	CompareSvc                compare.ExcelServiceInterface
 	DropdownSvc               dropdown.Service
 	InboundExpressServiceSvc  inbound.InboundExpressService
+	SeaWaybillDetailSvc       seaWaybill.Service
 	Ship2cuSvc                ship2cu.Service
 	UploadlogSvc              uploadlog.Service
 	OutboundExpressServiceSvc outboundExpress.OutboundExpressService
@@ -148,6 +150,13 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		repo.Ship2cuRepo,
 	)
 
+	seaWaybillDetailSvc := seaWaybill.NewService(
+		repo.SeaWaybillDetailRepo,
+		timeoutContext,
+		gcsClient,
+		conf,
+	)
+
 	// Outbound Express
 	outboundExpressServiceSvc := outboundExpress.NewOutboundExpressService(
 		repo.OutboundExpressRepositoryRepo,
@@ -175,6 +184,7 @@ func NewServiceFactory(repo *RepositoryFactory, gcsClient *gcs.Client, conf *con
 		CommonSvc:                 commonSvc,
 		DropdownSvc:               dropdownSvc,
 		InboundExpressServiceSvc:  inboundExpressServiceSvc,
+		SeaWaybillDetailSvc:       seaWaybillDetailSvc,
 		Ship2cuSvc:                ship2cuSvc,
 		UploadlogSvc:              uploadlogSvc,
 		OutboundExpressServiceSvc: outboundExpressServiceSvc,
