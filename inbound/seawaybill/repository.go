@@ -110,8 +110,8 @@ func (r repository) ListSeaWaybillDetails(ctx context.Context) ([]*SeaWaybillDet
             volume_weight,
             duty_tax,
             COALESCE(attachments::text, '[]') as attachments,
-            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as created_at,
+            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as updated_at
         FROM public.tbl_sea_waybill_details
         ORDER BY created_at DESC
     `
@@ -174,8 +174,8 @@ func (r repository) GetSeaWaybillDetail(ctx context.Context, uuid string) (*SeaW
             volume_weight,
             duty_tax,
             COALESCE(attachments::text, '[]') as attachments,
-            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as created_at,
+            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as updated_at
         FROM public.tbl_sea_waybill_details
         WHERE uuid = ?
     `
@@ -264,8 +264,8 @@ func (r repository) UpdateSeaWaybillDetail(ctx context.Context, data *seaWaybill
             volume_weight,
             duty_tax,
             COALESCE(attachments::text, '[]') as attachments,
-            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as created_at,
+            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD HH24:MI:SS.US') as updated_at
     `
 
 	sqlStr = utils.ReplaceSQL(sqlStr, "?")
