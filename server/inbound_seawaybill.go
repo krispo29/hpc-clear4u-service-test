@@ -19,12 +19,28 @@ type seaWaybillHandler struct {
 func (h *seaWaybillHandler) router() chi.Router {
 	r := chi.NewRouter()
 
+	r.Get("/", h.listSeaWaybillDetails)
 	r.Post("/", h.createSeaWaybillDetail)
 	r.Get("/{uuid}", h.getSeaWaybillDetail)
 	r.Put("/{uuid}", h.updateSeaWaybillDetail)
 	r.Delete("/{uuid}/attachments", h.deleteAttachment)
 
 	return r
+}
+
+func (h *seaWaybillHandler) listSeaWaybillDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	result, err := h.s.ListSeaWaybillDetails(ctx)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	render.Respond(w, r, SuccessResponse(result, "success"))
 }
 
 func (h *seaWaybillHandler) createSeaWaybillDetail(w http.ResponseWriter, r *http.Request) {

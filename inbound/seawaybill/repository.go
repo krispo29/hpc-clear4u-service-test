@@ -14,6 +14,7 @@ import (
 // Repository defines database operations for sea waybill details.
 type Repository interface {
 	CreateSeaWaybillDetail(ctx context.Context, data *seaWaybillDetailData) (*SeaWaybillDetailResponse, error)
+	ListSeaWaybillDetails(ctx context.Context) ([]*SeaWaybillDetailResponse, error)
 	GetSeaWaybillDetail(ctx context.Context, uuid string) (*SeaWaybillDetailResponse, error)
 	UpdateSeaWaybillDetail(ctx context.Context, data *seaWaybillDetailData) (*SeaWaybillDetailResponse, error)
 	DeleteAttachment(ctx context.Context, uuid, fileName string) (string, error)
@@ -95,6 +96,70 @@ func (r repository) CreateSeaWaybillDetail(ctx context.Context, data *seaWaybill
 	}
 
 	return &result, nil
+}
+
+func (r repository) ListSeaWaybillDetails(ctx context.Context) ([]*SeaWaybillDetailResponse, error) {
+	db := ctx.Value("postgreSQLConn").(*pg.DB)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	sqlStr := `
+        SELECT
+            uuid,
+            gross_weight,
+            volume_weight,
+            duty_tax,
+            COALESCE(attachments::text, '[]') as attachments,
+            to_char(created_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+            to_char(updated_at at time zone 'utc' at time zone 'Asia/Bangkok', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+        FROM public.tbl_sea_waybill_details
+        ORDER BY created_at DESC
+    `
+
+	sqlStr = utils.ReplaceSQL(sqlStr, "?")
+	stmt, err := db.Prepare(sqlStr)
+	if err != nil {
+		return nil, utils.PostgresErrorTransform(err)
+	}
+	defer stmt.Close()
+
+	type seaWaybillDetailRow struct {
+		UUID         string
+		GrossWeight  float64
+		VolumeWeight float64
+		DutyTax      float64
+		Attachments  string
+		CreatedAt    string
+		UpdatedAt    string
+	}
+
+	rows := []seaWaybillDetailRow{}
+	_, err = stmt.QueryContext(ctx, &rows)
+	if err != nil {
+		return nil, utils.PostgresErrorTransform(err)
+	}
+
+	results := make([]*SeaWaybillDetailResponse, 0, len(rows))
+	for _, row := range rows {
+		item := &SeaWaybillDetailResponse{
+			UUID:         row.UUID,
+			GrossWeight:  row.GrossWeight,
+			VolumeWeight: row.VolumeWeight,
+			DutyTax:      row.DutyTax,
+			CreatedAt:    row.CreatedAt,
+			UpdatedAt:    row.UpdatedAt,
+		}
+
+		if row.Attachments != "" && row.Attachments != "[]" {
+			if err := json.Unmarshal([]byte(row.Attachments), &item.Attachments); err != nil {
+				return nil, fmt.Errorf("failed to parse attachments: %w", err)
+			}
+		}
+
+		results = append(results, item)
+	}
+
+	return results, nil
 }
 
 func (r repository) GetSeaWaybillDetail(ctx context.Context, uuid string) (*SeaWaybillDetailResponse, error) {
